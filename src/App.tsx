@@ -6,15 +6,16 @@ import { PenPicker } from './components/PenPicker';
 import { PEN_MODELS, isPenModelId, penModel, type PenModelId } from './game/pens';
 import type { PlayerId } from './game/types';
 import type { OnlineClient } from './net/client';
+import { takeInviteCode } from './net/invite';
 
 type Mode = 'local' | 'ai' | 'online';
 type Models = [PenModelId, PenModelId];
 
 type Screen =
   | { kind: 'menu' }
-  /** Choosing pens; local play asks each player in turn. */
-  | { kind: 'pick'; mode: Mode; chosen: PenModelId[] }
-  | { kind: 'lobby'; model: PenModelId }
+  /** Choosing pens; local play asks each player in turn. `invite` is a room to join after. */
+  | { kind: 'pick'; mode: Mode; chosen: PenModelId[]; invite?: string }
+  | { kind: 'lobby'; model: PenModelId; joinCode?: string }
   | { kind: 'game'; mode: 'local' | 'ai'; models: Models; id: number }
   | { kind: 'online'; client: OnlineClient; me: PlayerId; models: Models };
 
@@ -37,10 +38,16 @@ function rememberPen(id: PenModelId): void {
   }
 }
 
+/** Read once at load: React may run state initialisers twice, and this clears the address bar. */
+const openingInvite = takeInviteCode();
+
 const randomPen = (): PenModelId => PEN_MODELS[Math.floor(Math.random() * PEN_MODELS.length)].id;
 
 export function App() {
-  const [screen, setScreen] = useState<Screen>({ kind: 'menu' });
+  // Opened from an invite link: choose a pen, then straight into the friend's room.
+  const [screen, setScreen] = useState<Screen>(() =>
+    openingInvite ? { kind: 'pick', mode: 'online', chosen: [], invite: openingInvite } : { kind: 'menu' },
+  );
   const [pen, setPen] = useState<PenModelId>(lastPen);
   const toMenu = () => setScreen({ kind: 'menu' });
   const pick = (mode: Mode) => setScreen({ kind: 'pick', mode, chosen: [] });
@@ -48,7 +55,7 @@ export function App() {
   const confirmPick = (s: Extract<Screen, { kind: 'pick' }>) => {
     rememberPen(pen);
     const chosen = [...s.chosen, pen];
-    if (s.mode === 'online') setScreen({ kind: 'lobby', model: pen });
+    if (s.mode === 'online') setScreen({ kind: 'lobby', model: pen, joinCode: s.invite });
     else if (s.mode === 'ai') setScreen({ kind: 'game', mode: 'ai', models: [pen, randomPen()], id: Date.now() });
     else if (chosen.length < 2) setScreen({ kind: 'pick', mode: 'local', chosen });
     else setScreen({ kind: 'game', mode: 'local', models: chosen as Models, id: Date.now() });
@@ -68,14 +75,20 @@ export function App() {
               : 'Choose your pen'
           }
           hint={
-            screen.mode === 'local' && screen.chosen.length === 1
-              ? `Player 1 picked ${penModel(screen.chosen[0]).name}.`
-              : 'Stronger pens hit harder and are harder to knock off.'
+            screen.invite
+              ? `You're invited to a pen fight in room ${screen.invite}. Pick the pen you'll fight with.`
+              : screen.mode === 'local' && screen.chosen.length === 1
+                ? `Player 1 picked ${penModel(screen.chosen[0]).name}.`
+                : 'Stronger pens hit harder and are harder to knock off.'
           }
           value={pen}
           onChange={setPen}
           confirmLabel={
-            screen.mode === 'local' && screen.chosen.length === 0 ? 'Next: Player 2' : 'Use this pen'
+            screen.invite
+              ? 'Join the fight'
+              : screen.mode === 'local' && screen.chosen.length === 0
+                ? 'Next: Player 2'
+                : 'Use this pen'
           }
           onConfirm={() => confirmPick(screen)}
           onBack={() =>
@@ -86,6 +99,7 @@ export function App() {
       {screen.kind === 'lobby' && (
         <OnlineLobby
           model={screen.model}
+          joinCode={screen.joinCode}
           onBack={toMenu}
           onStart={(client, me, models) => setScreen({ kind: 'online', client, me, models })}
         />

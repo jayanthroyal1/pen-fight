@@ -59,6 +59,16 @@ player who lost a round shoots first in the next.
 
 ### Online play
 
+Players find each other in three ways, all under **Play online**:
+
+- **Find an opponent**: quick match. The relay pairs you with the next player who is also looking.
+- **Create room**: gives an invite link (`…/?room=SRTF`) to share or copy. Opening it takes your friend
+  to the pen picker and then straight into your room.
+- **Got a code?**: type the 4-letter room code instead of using the link.
+
+Both players must reach the same relay, so for play across devices deploy `server/` to a public Node
+host and build the game with `VITE_SERVER_URL` pointing at it.
+
 The relay only pairs players and forwards messages. Both browsers simulate each shot. The shooter's
 browser decides how it ended and sends the settled state (`sync`), which the other browser adopts, so
 the two desks always agree.
