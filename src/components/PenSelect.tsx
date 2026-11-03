@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { DIFFICULTY, type Difficulty } from '../game/ai';
 import type { Room } from '../game/rooms';
-import { eligiblePens, penLevel, type OwnedPen, type Profile } from '../profile/economy';
+import { boxLimit, eligiblePens, penLevel, type OwnedPen, type Profile } from '../profile/economy';
 import { PenBox } from './PenBox';
 
 interface Props {
@@ -60,6 +60,7 @@ export function PenSelect({ title, hint, profile, room, askDifficulty, confirmLa
           selected={selected}
           onSelect={setSelected}
           label={`${profile.name}'s pencil box`}
+          limit={boxLimit(profile)}
           disabled={(p) => (room && penLevel(p) < room.minLevel ? `Needs level ${room.minLevel}+` : null)}
         />
         {room && <p className="muted">If you lose, this pen goes to the winner.</p>}

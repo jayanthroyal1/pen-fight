@@ -1,4 +1,4 @@
-import type { Profile } from '../profile/economy';
+import { boxLimit, type Profile } from '../profile/economy';
 import { PenBox, Rupees } from './PenBox';
 
 interface Props {
@@ -43,7 +43,7 @@ export function Home({ profile, notices, onDismissNotices, onOnline, onLocal, on
         </div>
       )}
 
-      <PenBox pens={profile.pens} />
+      <PenBox pens={profile.pens} limit={boxLimit(profile)} />
 
       <nav className="menu-actions" aria-label="Play">
         <button type="button" className="btn btn-primary" onClick={onOnline}>

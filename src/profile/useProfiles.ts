@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { newProfile, pocketMoney, today, type Profile } from './economy';
+import { newProfile, newTesterProfile, pocketMoney, testerTopUp, today, type Profile } from './economy';
 import { getProfileStore } from './store';
 
 export interface ProfilesState {
@@ -11,6 +11,8 @@ export interface ProfilesState {
   create(name: string): Promise<Profile>;
   save(profile: Profile): Promise<void>;
   setActive(id: string): Promise<void>;
+  /** Opens the test account (creating it the first time) and makes it the player. */
+  openTester(name: string): Promise<Profile>;
   dismissNotices(): void;
 }
 
@@ -30,7 +32,7 @@ export function useProfiles(): ProfilesState {
       const given: string[] = [];
       const updated = await Promise.all(
         list.map(async (p) => {
-          const r = pocketMoney(p, day);
+          const r = pocketMoney(testerTopUp(p), day);
           if (r.profile === p) return p;
           await store.save(r.profile);
           if (r.rupees) given.push(`${p.name} got ₹${r.rupees} pocket money.`);
@@ -51,7 +53,9 @@ export function useProfiles(): ProfilesState {
   }, [store]);
 
   const save = useCallback(
-    async (profile: Profile) => {
+    async (next: Profile) => {
+      // The test account never runs out of money.
+      const profile = testerTopUp(next);
       setProfiles((list) => {
         const i = list.findIndex((p) => p.id === profile.id);
         return i >= 0 ? list.map((p) => (p.id === profile.id ? profile : p)) : [...list, profile];
@@ -81,6 +85,17 @@ export function useProfiles(): ProfilesState {
     [store],
   );
 
+  const openTester = useCallback(
+    async (name: string) => {
+      const existing = profiles.find((p) => p.tester && p.name.toLowerCase() === name.toLowerCase());
+      const profile = existing ? testerTopUp(existing) : newTesterProfile(name);
+      if (profile !== existing) await save(profile);
+      await setActive(profile.id);
+      return profile;
+    },
+    [profiles, save, setActive],
+  );
+
   return {
     ready,
     profiles,
@@ -89,6 +104,7 @@ export function useProfiles(): ProfilesState {
     create,
     save,
     setActive,
+    openTester,
     dismissNotices: () => setNotices([]),
   };
 }

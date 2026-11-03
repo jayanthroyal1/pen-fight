@@ -30,6 +30,8 @@ export interface MatchSetup {
   loadouts: [Loadout, Loadout];
   /** Each player's pencil box, for the swap choice; null where unknown (an online opponent). */
   boxes: [OwnedPen[] | null, OwnedPen[] | null];
+  /** Whether each player's pencil box has room for a won pen. */
+  boxRoom: [boolean, boolean];
   difficulty: Difficulty;
 }
 
@@ -75,7 +77,7 @@ type Prize =
   | { step: 'done'; kind: PrizeKind };
 
 export function GameView({ setup, online, onSettle, onExit }: Props) {
-  const { mode, room, staked, names, loadouts, boxes, difficulty } = setup;
+  const { mode, room, staked, names, loadouts, boxes, boxRoom, difficulty } = setup;
   const me: PlayerId = online?.me ?? 0;
   const isHuman = useCallback((p: PlayerId) => mode === 'local' || p === me, [mode, me]);
   const you = (p: PlayerId) => (mode === 'local' ? names[p] : p === me ? 'You' : names[p]);
@@ -589,13 +591,13 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
 
               {prize.step === 'waiting' && <p className="waiting">{names[winner]} is deciding what to do with your pen…</p>}
 
-              {prize.step === 'choose' && !prize.swapping && (boxes[winner]?.length ?? 0) < MAX_PENS && (
+              {prize.step === 'choose' && !prize.swapping && boxRoom[winner] && (
                 <button type="button" className="btn btn-primary" onClick={() => settle('take', true)} autoFocus>
                   Put it in {mode === 'local' ? `${names[winner]}'s` : 'my'} pencil box
                 </button>
               )}
 
-              {prize.step === 'choose' && !prize.swapping && (boxes[winner]?.length ?? 0) >= MAX_PENS && (
+              {prize.step === 'choose' && !prize.swapping && !boxRoom[winner] && (
                 <>
                   <p>
                     {mode === 'local' ? `${names[winner]}'s` : 'Your'} pencil box is full ({MAX_PENS} pens). What happens to the

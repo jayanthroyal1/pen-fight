@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { PEN_MODELS, type PenLevel } from '../game/pens';
 import { POWERS, type PowerId } from '../game/powers';
-import { MAX_PENS, StoreError, buyPen, buyPower, type Profile } from '../profile/economy';
+import { StoreError, boxLimit, buyPen, buyPower, hasRoom, type Profile } from '../profile/economy';
 import { PenBox, PenLabel, PenSwatch, Rupees } from './PenBox';
 
 interface Props {
@@ -28,14 +28,17 @@ export function Store({ profile, onSave, onBack }: Props) {
     }
   };
 
-  const full = profile.pens.length >= MAX_PENS;
+  const full = !hasRoom(profile);
+  const limit = boxLimit(profile);
 
   return (
     <main className="cover shop">
       <header className="name-label">
         <h1 className="label-title">Pen store</h1>
         <p className="label-note">
-          You have <Rupees amount={profile.rupees} /> · pencil box {profile.pens.length}/{MAX_PENS}
+          You have <Rupees amount={profile.rupees} /> · pencil box{' '}
+          {Number.isFinite(limit) ? `${profile.pens.length}/${limit}` : `${profile.pens.length} pens`}
+          {profile.tester && ' · test account'}
         </p>
       </header>
 
@@ -131,7 +134,7 @@ export function Store({ profile, onSave, onBack }: Props) {
           {power && (
             <section className="slip">
               <h2>Which pen gets {POWERS.find((p) => p.id === power)!.name}?</h2>
-              <PenBox pens={profile.pens} selected={target} onSelect={setTarget} label="Your pens" />
+              <PenBox pens={profile.pens} selected={target} onSelect={setTarget} label="Your pens" limit={limit} />
               {target && (
                 <p className="preview-line">
                   <PenSwatch model={profile.pens.find((x) => x.uid === target)!.model} power={power} />

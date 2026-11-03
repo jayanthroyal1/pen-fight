@@ -50,15 +50,17 @@ interface BoxProps {
   /** Pens that can't be picked here, with the reason. */
   disabled?: (pen: OwnedPen) => string | null;
   label?: string;
+  /** How many pens the box holds; a test account's has no limit. */
+  limit?: number;
 }
 
 /** A player's geometry box: up to five pens in their slots. */
-export function PenBox({ pens, selected, onSelect, disabled, label = 'Pencil box' }: BoxProps) {
-  const empty = MAX_PENS - pens.length;
+export function PenBox({ pens, selected, onSelect, disabled, label = 'Pencil box', limit = MAX_PENS }: BoxProps) {
+  const empty = Number.isFinite(limit) ? Math.max(0, limit - pens.length) : 0;
   return (
     <fieldset className="pen-box" disabled={!onSelect}>
       <legend>
-        {label} <span className="box-count">{pens.length}/{MAX_PENS}</span>
+        {label} <span className="box-count">{Number.isFinite(limit) ? `${pens.length}/${limit}` : `${pens.length} pens`}</span>
       </legend>
       {pens.map((pen) => {
         const why = disabled?.(pen) ?? null;

@@ -15,7 +15,8 @@ import type { Loadout, PlayerId } from './game/types';
 import type { OnlineClient } from './net/client';
 import { takeInvite, type Invite } from './net/invite';
 import type { Seat } from './net/protocol';
-import { applyLoss, applyWin, entryProblem, ownPen, type OwnedPen, type PrizeChoice, type Profile } from './profile/economy';
+import { applyLoss, applyWin, entryProblem, hasRoom, ownPen, type OwnedPen, type PrizeChoice, type Profile } from './profile/economy';
+import { checkTester, testerEnabled } from './profile/tester';
 import { useProfiles } from './profile/useProfiles';
 
 type Screen =
@@ -74,6 +75,16 @@ export function App() {
             await profiles.setActive(id);
             home();
           }}
+          onTester={
+            testerEnabled
+              ? (name, passcode) => {
+                  const user = checkTester(name, passcode);
+                  if (!user) return 'That user name or passcode isn’t right.';
+                  void profiles.openTester(user).then(home);
+                  return null;
+                }
+              : undefined
+          }
           onBack={home}
         />
       </div>
@@ -169,6 +180,7 @@ export function App() {
                     names: [me.name, 'Computer'],
                     loadouts: [loadout(pen), computerPen()],
                     boxes: [me.pens, null],
+                    boxRoom: [hasRoom(me), true],
                     difficulty,
                   },
                   [me.id, null],
@@ -189,6 +201,7 @@ export function App() {
                     names: [me.name, opponent.name],
                     loadouts: [loadout(screen.first), loadout(pen)],
                     boxes: [me.pens, opponent.pens],
+                    boxRoom: [hasRoom(me), hasRoom(opponent)],
                     difficulty,
                   },
                   [me.id, opponent.id],
@@ -217,6 +230,7 @@ export function App() {
                   names: [players[0].name, players[1].name],
                   loadouts: [players[0].loadout, players[1].loadout],
                   boxes: you === 0 ? [me.pens, null] : [null, me.pens],
+                  boxRoom: [you === 0 ? hasRoom(me) : true, you === 1 ? hasRoom(me) : true],
                   difficulty: 'medium',
                 },
                 you === 0 ? [me.id, null] : [null, me.id],

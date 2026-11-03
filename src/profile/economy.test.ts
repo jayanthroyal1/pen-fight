@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { PEN_MODELS, penModel } from '../game/pens';
+import { POWERS } from '../game/powers';
 import { ROOMS, room } from '../game/rooms';
 import {
+  START_PENS,
+  TESTER_RUPEES,
   MAX_PENS,
   StoreError,
   applyLoss,
@@ -11,8 +14,10 @@ import {
   eligiblePens,
   entryProblem,
   newProfile,
+  newTesterProfile,
   ownPen,
   pocketMoney,
+  testerTopUp,
   type Profile,
 } from './economy';
 
@@ -131,5 +136,21 @@ describe('settling a bet', () => {
     expect(swapped.pens.some((x) => x.uid === prize.uid)).toBe(true);
     expect(applyWin(full, 25, prize, { kind: 'break' }).pens).toHaveLength(MAX_PENS);
     expect(applyLoss(loser, 25, prize.uid, true).pens).toHaveLength(3);
+  });
+});
+
+describe('test account', () => {
+  it('can buy every pen and power, and is topped back up', () => {
+    let p = newTesterProfile('jayanth', seeded(12));
+    expect(p.tester).toBe(true);
+    for (const m of PEN_MODELS) p = testerTopUp(buyPen(p, m.id));
+    expect(p.pens).toHaveLength(START_PENS + PEN_MODELS.length);
+    for (const pw of POWERS) p = testerTopUp(buyPower(p, pw.id, p.pens[0].uid));
+    expect(p.rupees).toBe(TESTER_RUPEES);
+  });
+
+  it('never tops up a normal player', () => {
+    const p = newProfile('A', seeded(13));
+    expect(testerTopUp(p)).toBe(p);
   });
 });

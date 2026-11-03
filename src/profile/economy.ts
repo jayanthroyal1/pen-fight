@@ -17,6 +17,8 @@ export interface Profile {
   /** Day (YYYY-MM-DD) pocket money was last given. */
   lastPocketMoney: string | null;
   createdAt: string;
+  /** Test account: no pencil-box limit, and money is topped back up. */
+  tester?: boolean;
 }
 
 export const START_RUPEES = 100;
@@ -26,6 +28,21 @@ export const MAX_PENS = 5;
 /** Below this a player can't afford the cheapest room, so pocket money tops them up. */
 export const BROKE_BELOW = 25;
 export const POCKET_MONEY = 50;
+/** A test account always has at least this much, enough to buy everything in the store. */
+export const TESTER_RUPEES = 1_000_000;
+
+/** How many pens this player's pencil box holds. */
+export const boxLimit = (p: Profile) => (p.tester ? Infinity : MAX_PENS);
+
+/** A test account: a normal start, plus the money and box space to try everything. */
+export function newTesterProfile(name: string, rng: Rng = Math.random): Profile {
+  return { ...newProfile(name, rng), rupees: TESTER_RUPEES, tester: true };
+}
+
+/** Tops a test account's money back up; anyone else is returned unchanged. */
+export function testerTopUp(p: Profile): Profile {
+  return p.tester && p.rupees < TESTER_RUPEES ? { ...p, rupees: TESTER_RUPEES } : p;
+}
 
 export type Rng = () => number;
 
@@ -106,7 +123,7 @@ export class StoreError extends Error {}
 
 export function buyPen(p: Profile, model: PenModelId, rng: Rng = Math.random): Profile {
   const m = penModel(model);
-  if (p.pens.length >= MAX_PENS) throw new StoreError(`Your pencil box is full (${MAX_PENS} pens).`);
+  if (!hasRoom(p)) throw new StoreError(`Your pencil box is full (${MAX_PENS} pens).`);
   if (p.rupees < m.price) throw new StoreError(`${m.name} costs ₹${m.price}. You have ₹${p.rupees}.`);
   return { ...p, rupees: p.rupees - m.price, pens: [...p.pens, ownPen(model, rng)] };
 }
@@ -126,7 +143,9 @@ export function buyPower(p: Profile, power: PowerId, penUid: string): Profile {
 /** What a winner whose pencil box is full does with the pen they won. */
 export type PrizeChoice = { kind: 'swap'; dropUid: string } | { kind: 'break' } | { kind: 'return' };
 
-export const hasRoom = (p: Profile) => p.pens.length < MAX_PENS;
+export function hasRoom(p: Profile): boolean {
+  return p.pens.length < boxLimit(p);
+}
 
 /** The winner's side of a bet: the loser's bet, and the loser's pen unless broken or given back. */
 export function applyWin(p: Profile, bet: number, prize: OwnedPen, choice: PrizeChoice | null): Profile {
