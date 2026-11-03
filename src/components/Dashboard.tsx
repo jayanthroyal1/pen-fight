@@ -121,9 +121,9 @@ export function Dashboard({ profile, notices, onDismissNotices, onMode, onLevel,
         </h2>
         <button type="button" className="store-card" onClick={onStore}>
           <span className="store-pens" aria-hidden>
-            <PenSwatch model="sakura" />
-            <PenSwatch model="royalgold" />
-            <PenSwatch model="addgel" power="giant" />
+            <PenSwatch model="butterfly-pink" />
+            <PenSwatch model="exec-gold-clip" />
+            <PenSwatch model="teal-alu" power="giant" />
           </span>
           <span className="mode-title">Pen store</span>
           <span className="mode-note">20 pens in five levels, and seven hero powers.</span>

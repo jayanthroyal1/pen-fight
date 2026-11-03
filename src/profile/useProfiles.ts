@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { currentPenId } from '../game/pens';
 import { newProfile, newTesterProfile, pocketMoney, testerTopUp, today, type Profile } from './economy';
 import { getProfileStore } from './store';
 
@@ -14,6 +15,12 @@ export interface ProfilesState {
   /** Opens the test account (creating it the first time) and makes it the player. */
   openTester(name: string): Promise<Profile>;
   dismissNotices(): void;
+}
+
+/** Pens saved by an earlier version of the game become today's equivalent pens. */
+function upgradePens(p: Profile): Profile {
+  const pens = p.pens.map((pen) => ({ ...pen, model: currentPenId(pen.model) }));
+  return pens.some((pen, i) => pen.model !== p.pens[i].model) ? { ...p, pens } : p;
 }
 
 /** The players on this device: loads them, gives daily pocket money, saves changes. */
@@ -32,7 +39,7 @@ export function useProfiles(): ProfilesState {
       const given: string[] = [];
       const updated = await Promise.all(
         list.map(async (p) => {
-          const r = pocketMoney(testerTopUp(p), day);
+          const r = pocketMoney(testerTopUp(upgradePens(p)), day);
           if (r.profile === p) return p;
           await store.save(r.profile);
           if (r.rupees) given.push(`${p.name} got ₹${r.rupees} pocket money.`);

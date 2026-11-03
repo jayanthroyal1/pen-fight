@@ -49,7 +49,7 @@ describe('DeskWorld', () => {
   });
 
   it('a more powerful pen knocks the other further', () => {
-    const shove = (shooter: 'retro51' | 'ballpoint', target: 'retro51' | 'ballpoint') => {
+    const shove = (shooter: 'exec-gold-clip' | 'inkmax-aqua', target: 'exec-gold-clip' | 'inkmax-aqua') => {
       const world = new DeskWorld(
         pair(
           createPen(0, 250, 250, Math.PI / 2, shooter),
@@ -62,12 +62,12 @@ describe('DeskWorld', () => {
       world.free();
       return moved;
     };
-    expect(shove('retro51', 'ballpoint')).toBeGreaterThan(shove('ballpoint', 'retro51') * 1.5);
+    expect(shove('exec-gold-clip', 'inkmax-aqua')).toBeGreaterThan(shove('inkmax-aqua', 'exec-gold-clip') * 1.5);
   });
 
   it('a hero power gives the same pen a little more push', () => {
     const slide = (power: 'giant' | null) => {
-      const world = new DeskWorld(pair(createPen(0, 150, 250, Math.PI / 2, 'cello', power), far()));
+      const world = new DeskWorld(pair(createPen(0, 150, 250, Math.PI / 2, 'click-red', power), far()));
       world.flick(0, { along: 0, ix: 500, iy: 0 });
       world.settle();
       const x = world.read()[0].x;

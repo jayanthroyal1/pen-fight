@@ -38,7 +38,7 @@ export function createPen(
   x: number,
   y: number,
   angle: number,
-  model: PenModelId = 'cello',
+  model: PenModelId = 'click-red',
   power: PowerId | null = null,
 ): Pen {
   return { id, model, power, x, y, angle, h: PEN_HALF_HEIGHT, q: flatRotation(angle), out: false };

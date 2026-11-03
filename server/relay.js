@@ -9,8 +9,8 @@ const RELAYED = new Set(['shot', 'sync', 'next', 'prize']);
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const ROOMS = { public: 25, private: 50, cbse: 75, international: 100 };
 const PEN_MODELS = new Set([
-  'ballpoint', 'blossom', 'chalkline', 'tutor', 'reynolds', 'rosequill', 'neonzip', 'inkjet', 'cello', 'sakura',
-  'oceanwave', 'redline', 'addgel', 'rosegold', 'midnight', 'emerald', 'retro51', 'flamingo', 'titan', 'royalgold',
+  'inkmax-aqua', 'inkmax-rose', 'gripper', 'frosty', 'clear-grip', 'butterfly-pink', 'navy-writer', 'techno-tip', 'click-red', 'click-sky',
+  'click-blue', 'four-colour', 'teal-alu', 'rose-alu', 'gunmetal', 'silver-stripe', 'exec-gold-clip', 'flamingo-gold', 'silver-line', 'gold-dot',
 ]);
 const POWERS = new Set(['giant', 'webflick', 'comet', 'nightwing', 'amazon', 'chakra', 'hanuman']);
 
@@ -22,7 +22,7 @@ function seatOf(msg) {
   return {
     name: String(msg.name ?? 'Player').slice(0, 20) || 'Player',
     loadout: {
-      model: PEN_MODELS.has(loadout.model) ? loadout.model : 'ballpoint',
+      model: PEN_MODELS.has(loadout.model) ? loadout.model : 'inkmax-aqua',
       power: POWERS.has(loadout.power) ? loadout.power : null,
     },
   };

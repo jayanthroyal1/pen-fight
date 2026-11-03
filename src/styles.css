@@ -1860,3 +1860,78 @@ div.room-card.is-locked {
     transform: none;
   }
 }
+
+/* Swatch details for click pens, printed barrels and multi-colour pens. */
+.sw-pattern {
+  position: absolute;
+  inset: 0;
+  opacity: 0.9;
+}
+
+.pen-swatch.is-click .sw-plug {
+  width: 7px;
+  height: 6px;
+  border-radius: 2px 0 0 2px;
+  background: linear-gradient(180deg, #f6f7f9, #9aa0a8) !important;
+}
+
+.pen-swatch.is-click .sw-cap {
+  width: 12%;
+}
+
+.pen-swatch.is-click .sw-clip {
+  left: 2px;
+  right: auto;
+  width: 280%;
+}
+
+.sw-sliders {
+  position: absolute;
+  left: 4%;
+  top: -3px;
+  display: flex;
+  gap: 1px;
+}
+
+.sw-sliders span {
+  width: 3px;
+  height: 3px;
+  border-radius: 1px;
+}
+
+/* Highlights replay: a strip across the top of the desk. */
+.replay-bar {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  right: var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  color: var(--label);
+  background: rgba(20, 14, 10, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+}
+
+.replay-tag {
+  padding: 0 var(--space-2);
+  color: #1b1208;
+  background: var(--natraj);
+  border-radius: 4px;
+  font-family: var(--font-head);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.replay-text {
+  flex: 1;
+  min-width: 160px;
+}
+
+.replay-text strong {
+  color: var(--natraj);
+}

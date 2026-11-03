@@ -1,5 +1,5 @@
 import { effectiveLook } from '../game/penMesh';
-import { LEVEL_LABELS, penModel, type PenModelId } from '../game/pens';
+import { LEVEL_LABELS, penModel, type PenModelId, type PenPattern } from '../game/pens';
 import { power as powerOf, type PowerId } from '../game/powers';
 import { MAX_PENS, type OwnedPen } from '../profile/economy';
 
@@ -7,18 +7,27 @@ import { MAX_PENS, type OwnedPen } from '../profile/economy';
 export function PenSwatch({ model, power = null }: { model: PenModelId; power?: PowerId | null }) {
   const look = effectiveLook(model, power);
   const metal = look.finish === 'metal';
+  const click = look.form === 'click' && power !== 'hanuman';
   const shade = (c: string) =>
     metal
       ? `linear-gradient(180deg, #f6f7f9 0%, ${c} 40%, color-mix(in srgb, ${c} 55%, black) 100%)`
       : `linear-gradient(180deg, color-mix(in srgb, ${c} 55%, white) 0%, ${c} 45%, color-mix(in srgb, ${c} 65%, black) 100%)`;
   return (
-    <span className={`pen-swatch${power === 'hanuman' ? ' is-mace' : ''}`} aria-hidden>
+    <span className={`pen-swatch${power === 'hanuman' ? ' is-mace' : ''}${click ? ' is-click' : ''}`} aria-hidden>
       <span className="sw-plug" style={{ background: shade(look.plug) }} />
       <span className="sw-barrel" style={{ background: shade(look.barrel), opacity: look.finish === 'translucent' ? 0.8 : 1 }}>
         {look.finish === 'translucent' && <span className="sw-ink" style={{ background: look.ink }} />}
+        {look.pattern && <span className="sw-pattern" style={{ background: patternCss(look.pattern) }} />}
         <span className="sw-cap" style={{ background: shade(look.cap) }}>
           <span className="sw-clip" style={{ background: look.trim ?? 'rgba(255,255,255,0.7)' }} />
         </span>
+        {look.sliders && (
+          <span className="sw-sliders">
+            {look.sliders.map((c) => (
+              <span key={c} style={{ background: c }} />
+            ))}
+          </span>
+        )}
         {look.band && <span className="sw-band" style={{ background: look.band }} />}
         {look.grip && <span className="sw-grip" style={{ background: look.grip }} />}
       </span>
@@ -26,6 +35,21 @@ export function PenSwatch({ model, power = null }: { model: PenModelId; power?: 
       <span className="sw-point" />
     </span>
   );
+}
+
+/** A pen's printed pattern, drawn small for the swatch. */
+function patternCss(p: PenPattern): string {
+  const [a, b = a, c = a, d = a] = p.colors;
+  switch (p.kind) {
+    case 'dots':
+      return `radial-gradient(circle, ${a} 1px, transparent 1.5px) 0 0 / 4px 4px`;
+    case 'rings':
+      return `linear-gradient(90deg, transparent 40%, ${a} 40% 43%, transparent 43% 48%, ${a} 48% 51%, transparent 51%)`;
+    case 'label':
+      return `linear-gradient(90deg, transparent 35%, ${a} 35% 70%, transparent 70%)`;
+    default:
+      return `linear-gradient(90deg, transparent 30%, ${a} 30% 40%, ${b} 40% 50%, ${c} 50% 58%, ${d} 58% 66%, transparent 66%)`;
+  }
 }
 
 /** Name, level and power of a pen, in one line. */

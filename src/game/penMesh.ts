@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { penModel, type Finish, type PenLook, type PenModelId } from './pens';
+import { penModel, type Finish, type PenLook, type PenModelId, type PenPattern } from './pens';
 import { PEN_HALF_HEIGHT, PEN_LENGTH } from './physics';
 import { power as powerOf, type PowerId } from './powers';
 import { UNITS } from './world';
@@ -41,6 +41,7 @@ export function effectiveLook(model: PenModelId, power: PowerId | null): PenLook
     printColor: s.printColor,
     finish: s.finish,
     band: s.band,
+    pattern: undefined,
   };
 }
 
@@ -65,6 +66,8 @@ export function buildPen(model: PenModelId, power: PowerId | null, opts: Options
     keep(new THREE.MeshPhysicalMaterial({ color, roughness: 0.35, clearcoat: 0.6, clearcoatRoughness: 0.15, ...extra }));
   const chrome = metal('#dfe3e8', 0.1);
   const trim = look.trim ? metal(look.trim, 0.15) : null;
+  /** Parts in the trim colour (gold, chrome) are metal, whatever the barrel is. */
+  const isTrimColor = (c: string) => look.trim !== undefined && c.toLowerCase() === look.trim.toLowerCase();
 
   const add = (mesh: THREE.Object3D, centreX: number) => {
     mesh.traverse((o) => {
@@ -100,7 +103,9 @@ export function buildPen(model: PenModelId, power: PowerId | null, opts: Options
     );
 
   const mace = power === 'hanuman';
-  const capEnd = -HALF + 0.4;
+  const click = look.form === 'click' && !mace;
+  // Where the cap (or a click pen's top collar) ends and the barrel shows.
+  const capEnd = click ? -HALF + 0.13 : -HALF + 0.4;
   const noseStart = HALF - 0.29;
   const tipStart = HALF - 0.075;
 
@@ -151,6 +156,25 @@ export function buildPen(model: PenModelId, power: PowerId | null, opts: Options
     add(print, 0.1);
   }
 
+  if (look.pattern && !opts.split) {
+    const onGrip = look.pattern.on === 'grip';
+    const x0 = onGrip ? noseStart - 0.25 : capEnd + 0.04;
+    const x1 = onGrip ? noseStart - 0.01 : noseStart - (look.grip ? 0.27 : 0.02);
+    const radius = (onGrip && look.grip ? R * 1.09 : R) * 1.012;
+    const sleeve = new THREE.Mesh(
+      openTube(x0, x1, radius),
+      keep(
+        new THREE.MeshStandardMaterial({
+          map: patternTexture(look.pattern, x1 - x0),
+          transparent: true,
+          roughness: 0.35,
+          depthWrite: false,
+        }),
+      ),
+    );
+    add(sleeve, (x0 + x1) / 2);
+  }
+
   // Hero band round the middle of the barrel.
   if (look.band) ring(-0.2, 0.06, R * 1.03, finishMat(look.band, 'lacquer'));
 
@@ -167,7 +191,8 @@ export function buildPen(model: PenModelId, power: PowerId | null, opts: Options
   if (trim) ring(noseStart - 0.006, 0.012, R * 1.05, trim);
 
   // Nose cone curving down to a metal tip and the ball.
-  const noseMat = look.finish === 'metal' ? metal(look.nib, 0.22) : finishMat(look.nib, look.finish === 'translucent' ? 'translucent' : 'plastic');
+  const metalNose = look.finish === 'metal' || isTrimColor(look.nib);
+  const noseMat = metalNose ? metal(look.nib, 0.22) : finishMat(look.nib, look.finish === 'translucent' ? 'translucent' : 'plastic');
   turned(
     [
       [noseStart, 0],
@@ -187,9 +212,47 @@ export function buildPen(model: PenModelId, power: PowerId | null, opts: Options
 
   if (mace) {
     buildMaceHead(turned, metal, look);
+  } else if (click) {
+    // Click pen: a collar at the top, the plunger poking out of it, and a clip down the barrel.
+    const collarMat = look.finish === 'metal' || isTrimColor(look.cap) ? metal(look.cap, 0.2) : finishMat(look.cap, look.finish);
+    turned(
+      [
+        [-HALF + 0.04, 0],
+        [-HALF + 0.04, R * 0.92],
+        [-HALF + 0.05, R * 1.02],
+        [capEnd - 0.006, R * 1.02],
+        [capEnd, R * 0.98],
+        [capEnd, 0],
+      ],
+      collarMat,
+    );
+    const plunger = metal(look.plug, 0.12);
+    turned(
+      [
+        [-HALF - 0.035, 0],
+        [-HALF - 0.035, R * 0.42],
+        [-HALF - 0.028, R * 0.55],
+        [-HALF + 0.045, R * 0.58],
+        [-HALF + 0.045, 0],
+      ],
+      plunger,
+      28,
+    );
+    add(buildClip(R * 1.02, -HALF + 0.46, trim ?? plunger), -HALF + 0.25);
+    // A multi-colour pen's ink sliders, one on each side of the top.
+    (look.sliders ?? []).forEach((color, i) => {
+      const tab = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.018, 0.024), plastic(color));
+      const a = (i / (look.sliders?.length ?? 1)) * Math.PI * 2 + Math.PI / 4;
+      tab.position.set(-HALF + 0.08, Math.cos(a) * R * 1.05, Math.sin(a) * R * 1.05);
+      tab.rotation.x = -a;
+      add(tab, -HALF);
+    });
   } else {
     // Cap posted on the back: a shell with a domed end, a lip and a sprung clip.
-    const capMat = look.finish === 'metal' ? metal(look.cap, 0.2) : finishMat(look.cap, look.finish === 'translucent' ? 'plastic' : look.finish);
+    const capMat =
+      look.finish === 'metal' || isTrimColor(look.cap)
+        ? metal(look.cap, 0.2)
+        : finishMat(look.cap, look.finish === 'translucent' ? 'plastic' : look.finish);
     const rc = R * 1.14;
     turned(
       [
@@ -205,7 +268,11 @@ export function buildPen(model: PenModelId, power: PowerId | null, opts: Options
       capMat,
     );
     // End finial in the plug colour.
-    turned([[-HALF - 0.004, 0], [-HALF - 0.004, rc * 0.4], [-HALF + 0.004, rc * 0.5], [-HALF + 0.004, 0]], finishMat(look.plug, 'lacquer'), 24);
+    turned(
+      [[-HALF - 0.004, 0], [-HALF - 0.004, rc * 0.4], [-HALF + 0.004, rc * 0.5], [-HALF + 0.004, 0]],
+      isTrimColor(look.plug) ? metal(look.plug, 0.15) : finishMat(look.plug, 'lacquer'),
+      24,
+    );
     add(buildClip(rc, capEnd, trim ?? capMat), -HALF + 0.2);
     if (trim) ring(capEnd - 0.03, 0.014, rc * 1.02, trim);
   }
@@ -322,6 +389,74 @@ function openTube(x0: number, x1: number, r: number): THREE.BufferGeometry {
   geo.rotateZ(-Math.PI / 2);
   geo.translate((x0 + x1) / 2, 0, 0);
   return geo;
+}
+
+/**
+ * A printed pattern, laid out round the barrel (u) and along it (v).
+ * `length` is the printed span, so dots and rings keep their size.
+ */
+function patternTexture(p: PenPattern, length: number): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = Math.max(64, Math.round(length * 900));
+  const g = c.getContext('2d')!;
+  const [a, b = a, d = a, e = a, f = a] = p.colors;
+  if (p.kind === 'dots') {
+    // A grid of small round dots, every other row offset.
+    g.fillStyle = a;
+    for (let y = 8, row = 0; y < c.height; y += 16, row++) {
+      for (let x = (row % 2) * 8 + 4; x < c.width; x += 16) {
+        g.beginPath();
+        g.arc(x, y, 3.2, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+  } else if (p.kind === 'rings') {
+    // Thin rings round the barrel: two at the middle, or a group of four on a grip.
+    g.fillStyle = a;
+    const n = p.on === 'grip' ? 4 : 2;
+    for (let i = 0; i < n; i++) g.fillRect(0, c.height * (0.4 + i * 0.07), c.width, Math.max(3, c.height * 0.02));
+  } else if (p.kind === 'label') {
+    // A silver label band with a red logo box and coloured spots.
+    g.fillStyle = a;
+    g.fillRect(0, c.height * 0.15, c.width, c.height * 0.7);
+    g.fillStyle = b;
+    g.fillRect(0, c.height * 0.15, c.width, c.height * 0.05);
+    g.fillRect(0, c.height * 0.8, c.width, c.height * 0.05);
+    g.fillStyle = d;
+    g.fillRect(c.width * 0.12, c.height * 0.25, c.width * 0.2, c.height * 0.06);
+    g.fillStyle = b;
+    for (let i = 0; i < 5; i++) {
+      g.beginPath();
+      g.arc(c.width * 0.2, c.height * (0.4 + i * 0.08), 6, 0, Math.PI * 2);
+      g.fill();
+    }
+  } else {
+    // A colourful graphic: overlapping blocks and triangles, like a printed gel pen.
+    let seed = 17;
+    const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const colors = [a, b, d, e, f];
+    for (let i = 0; i < 40; i++) {
+      g.fillStyle = colors[i % colors.length];
+      g.globalAlpha = 0.9;
+      const x = rand() * c.width;
+      const y = rand() * c.height;
+      const s = 18 + rand() * 50;
+      g.beginPath();
+      if (i % 3 === 0) g.rect(x, y, s, s * 0.6);
+      else {
+        g.moveTo(x, y);
+        g.lineTo(x + s, y + s * 0.3);
+        g.lineTo(x + s * 0.2, y + s);
+      }
+      g.fill();
+    }
+    g.globalAlpha = 1;
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
 }
 
 function printTexture(text: string, color: string): THREE.CanvasTexture {

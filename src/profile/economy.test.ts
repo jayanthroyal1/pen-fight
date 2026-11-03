@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PEN_MODELS, penModel } from '../game/pens';
+import { PEN_MODELS, currentPenId, penModel } from '../game/pens';
 import { POWERS } from '../game/powers';
 import { ROOMS, room } from '../game/rooms';
 import {
@@ -92,16 +92,16 @@ describe('rooms', () => {
 describe('store', () => {
   it('buys a pen into a free slot', () => {
     const p: Profile = { ...newProfile('A', seeded(6)), rupees: 200 };
-    const after = buyPen(p, 'reynolds');
+    const after = buyPen(p, 'clear-grip');
     expect(after.rupees).toBe(50);
     expect(after.pens).toHaveLength(4);
   });
 
   it('refuses when broke or the pencil box is full', () => {
     const p = newProfile('A', seeded(7));
-    expect(() => buyPen(p, 'royalgold')).toThrow(StoreError);
-    const full: Profile = { ...p, rupees: 9999, pens: Array.from({ length: MAX_PENS }, () => ownPen('ballpoint')) };
-    expect(() => buyPen(full, 'ballpoint')).toThrow(/full/);
+    expect(() => buyPen(p, 'gold-dot')).toThrow(StoreError);
+    const full: Profile = { ...p, rupees: 9999, pens: Array.from({ length: MAX_PENS }, () => ownPen('inkmax-aqua')) };
+    expect(() => buyPen(full, 'inkmax-aqua')).toThrow(/full/);
   });
 
   it('applies a bought power to the chosen pen', () => {
@@ -129,7 +129,7 @@ describe('settling a bet', () => {
   });
 
   it('with a full box: swap, break or give back', () => {
-    const full: Profile = { ...winner, pens: Array.from({ length: MAX_PENS }, () => ownPen('ballpoint')) };
+    const full: Profile = { ...winner, pens: Array.from({ length: MAX_PENS }, () => ownPen('inkmax-aqua')) };
     expect(() => applyWin(full, 25, prize, null)).toThrow();
     const swapped = applyWin(full, 25, prize, { kind: 'swap', dropUid: full.pens[2].uid });
     expect(swapped.pens).toHaveLength(MAX_PENS);
@@ -152,5 +152,14 @@ describe('test account', () => {
   it('never tops up a normal player', () => {
     const p = newProfile('A', seeded(13));
     expect(testerTopUp(p)).toBe(p);
+  });
+});
+
+describe('pens from earlier versions', () => {
+  it('become the matching new pen, and unknown ones a starter pen', () => {
+    expect(currentPenId('reynolds')).toBe('clear-grip');
+    expect(currentPenId('retro51')).toBe('exec-gold-clip');
+    expect(currentPenId('click-sky')).toBe('click-sky');
+    expect(currentPenId('laser-pen')).toBe('inkmax-aqua');
   });
 });

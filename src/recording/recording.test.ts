@@ -30,15 +30,15 @@ class FakeStorage implements Storage {
 }
 
 const players: MatchRecord['players'] = [
-  { name: 'You', model: 'retro51' },
-  { name: 'Computer', model: 'ballpoint' },
+  { name: 'You', model: 'exec-gold-clip' },
+  { name: 'Computer', model: 'inkmax-aqua' },
 ];
 
 describe('MatchRecorder', () => {
   it('records the flick, sampled movement and outcome of a shot', async () => {
     const store = new MemoryMatchStore();
     const rec = new MatchRecorder(store, { mode: 'ai', players, me: 0 });
-    const state = newMatch([{ model: 'retro51', power: null }, { model: 'ballpoint', power: null }]);
+    const state = newMatch([{ model: 'exec-gold-clip', power: null }, { model: 'inkmax-aqua', power: null }]);
     rec.beginShot(state, { along: 10, ix: 500, iy: -20 });
     for (let i = 0; i < SAMPLE_EVERY * 4; i++) {
       rec.step(state.pens, i === 2 ? [{ kind: 'pens', strength: 0.5 }] : [], 1000 / 60);
@@ -48,7 +48,7 @@ describe('MatchRecorder', () => {
     const saved = await store.get(rec.id);
     expect(saved?.shots).toHaveLength(1);
     const shot = saved!.shots[0];
-    expect(shot.model).toBe('retro51');
+    expect(shot.model).toBe('exec-gold-clip');
     expect(shot.flick).toEqual({ along: 10, ix: 500, iy: -20 });
     expect(shot.frames).toHaveLength(4);
     expect(shot.impacts).toEqual([{ t: 50, kind: 'pens', strength: 0.5 }]);

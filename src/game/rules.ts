@@ -23,8 +23,8 @@ export function startPens(round: number, loadouts: [Loadout, Loadout]): [Pen, Pe
 }
 
 const DEFAULT: [Loadout, Loadout] = [
-  { model: 'cello', power: null },
-  { model: 'cello', power: null },
+  { model: 'click-red', power: null },
+  { model: 'click-red', power: null },
 ];
 
 export function newMatch(loadouts: [Loadout, Loadout] = DEFAULT): GameState {

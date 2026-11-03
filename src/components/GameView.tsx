@@ -16,6 +16,8 @@ import type { OnlineClient } from '../net/client';
 import type { PrizeKind } from '../net/protocol';
 import { MAX_PENS, type OwnedPen, type PrizeChoice } from '../profile/economy';
 import { MatchRecorder } from '../recording/recorder';
+import { SHOT_LABELS, bestShots, isNewBest, type Highlight } from '../recording/highlights';
+import { REPLAY_SPEED, replayPose } from '../recording/replay';
 import { getMatchStore } from '../recording/store';
 import { PenBox, PenLabel, PenSwatch, Rupees } from './PenBox';
 
@@ -102,6 +104,10 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
   const [dropUid, setDropUid] = useState<string | null>(null);
   const [swapError, setSwapError] = useState<string | null>(null);
   const [confirmBreak, setConfirmBreak] = useState(false);
+  // After the match: the winner's best shots, replayed before the result card.
+  const [replay, setReplay] = useState<{ shots: Highlight[]; index: number; winner: PlayerId } | null>(null);
+  const replayRef = useRef<{ shot: Highlight; start: number } | null>(null);
+  const replayedRef = useRef(false);
   const headerRef = useRef<HTMLElement>(null);
   const settledRef = useRef(false);
   // The Rapier world and the three.js view; created with the canvas loop below.
@@ -134,7 +140,15 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
 
   /** A shot is over: record how it ended. */
   const finishShot = useCallback((s: GameState) => {
-    void recorderRef.current?.endShot(s);
+    const recorder = recorderRef.current;
+    if (!recorder) return;
+    void recorder.endShot(s);
+    // A shot that beats the player's own earlier ones gets a call-out.
+    const record = recorder.snapshot();
+    const last = record.shots.at(-1);
+    if (last && isNewBest(record, last)) {
+      window.setTimeout(() => setShout({ text: 'BEST SHOT!', color: '#ffd166', key: performance.now() }), 350);
+    }
   }, []);
 
   /** Plays both pens' entrances; play waits until they've landed. */
@@ -186,6 +200,7 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
       if (s.phase === 'roundOver') commit(nextRound(s));
       else if (s.phase === 'matchOver' && !staked) {
         startRecording();
+        replayedRef.current = false;
         const fresh = newMatch(s.loadouts);
         commit(fresh);
         runIntro(fresh);
@@ -219,6 +234,33 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
   const dropUidRef = useRef<string | null>(null);
   dropUidRef.current = dropUid;
 
+  // When the match ends, replay the winner's best shots first.
+  useEffect(() => {
+    if (hud.phase !== 'matchOver' || replayedRef.current) return;
+    replayedRef.current = true;
+    const winner = matchWinner(hud);
+    const record = recorderRef.current?.snapshot();
+    if (winner === null || !record) return;
+    const shots = bestShots(record, winner);
+    if (shots.length) {
+      setReplay({ shots, index: 0, winner });
+      replayRef.current = { shot: shots[0], start: performance.now() };
+    }
+  }, [hud]);
+
+  const nextReplay = useCallback(() => {
+    setReplay((r) => {
+      if (!r || r.index + 1 >= r.shots.length) {
+        replayRef.current = null;
+        return null;
+      }
+      replayRef.current = { shot: r.shots[r.index + 1], start: performance.now() };
+      return { ...r, index: r.index + 1 };
+    });
+  }, []);
+  const nextReplayRef = useRef(nextReplay);
+  nextReplayRef.current = nextReplay;
+
   // When a staked match ends, decide who chooses what happens to the loser's pen.
   useEffect(() => {
     if (!staked || hud.phase !== 'matchOver' || prize.step !== 'none') return;
@@ -243,7 +285,7 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
       buzz(60);
     };
     // Handle for poking at the scene from the browser console while developing.
-    if (import.meta.env.DEV) Object.assign(window, { __penfight: { scene, state: stateRef, sounds } });
+    if (import.meta.env.DEV) Object.assign(window, { __penfight: { scene, state: stateRef, sounds, commit } });
     worldRef.current = world;
     sceneRef.current = scene;
     sounds.startChatter(room.theme.noise);
@@ -313,7 +355,16 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
       const t = acc / DT;
       const shown: [Pen, Pen] =
         prev && cur.phase === 'moving' ? [interpolatePen(prev[0], cur.pens[0], t), interpolatePen(prev[1], cur.pens[1], t)] : cur.pens;
-      scene.render(shown, aim, cur.phase === 'aim' ? cur.turn : null, now / 1000, hoverRef.current);
+      const playing = replayRef.current;
+      if (playing) {
+        const pens = replayPose(playing.shot, cur, (now - playing.start) * REPLAY_SPEED);
+        if (pens) scene.render(pens, null, null, now / 1000, false);
+        else {
+          replayRef.current = null;
+          nextReplayRef.current();
+          scene.render(shown, null, null, now / 1000, false);
+        }
+      } else scene.render(shown, aim, cur.phase === 'aim' ? cur.turn : null, now / 1000, hoverRef.current);
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -576,7 +627,27 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
           </div>
         )}
 
-        {hud.phase === 'matchOver' && !staked && winner !== null && (
+        {replay && (
+          <div className="replay-bar" role="status">
+            <span className="replay-tag">Replay</span>
+            <span className="replay-text">
+              {you(replay.winner) === 'You' ? 'Your' : `${names[replay.winner]}'s`} best shot {replay.shots.length > 1 ? `${replay.index + 1} of ${replay.shots.length}` : ''}:{' '}
+              <strong>{SHOT_LABELS[replay.shots[replay.index].kind]}</strong>
+            </span>
+            <button
+              type="button"
+              className="btn btn-secondary btn-small"
+              onClick={() => {
+                replayRef.current = null;
+                setReplay(null);
+              }}
+            >
+              Skip replay
+            </button>
+          </div>
+        )}
+
+        {hud.phase === 'matchOver' && !staked && winner !== null && !replay && (
           <div className="overlay" role="dialog" aria-labelledby="match-title">
             <div className="card paper">
               <h2 id="match-title">
@@ -595,7 +666,7 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
           </div>
         )}
 
-        {staked && winner !== null && loser !== null && prize.step !== 'none' && prize.step !== 'breaking' && (
+        {staked && winner !== null && loser !== null && prize.step !== 'none' && prize.step !== 'breaking' && !replay && (
           <div className="overlay" role="dialog" aria-labelledby="prize-title">
             <div className="card paper prize-card">
               <h2 id="prize-title">
@@ -611,22 +682,23 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
 
               {prize.step === 'waiting' && <p className="waiting">{names[winner]} is deciding what to do with your pen…</p>}
 
-              {prize.step === 'choose' && !prize.swapping && boxRoom[winner] && (
-                <button type="button" className="btn btn-primary" onClick={() => settle('take', true)} autoFocus>
-                  Put it in {mode === 'local' ? `${names[winner]}'s` : 'my'} pencil box
-                </button>
-              )}
-
-              {prize.step === 'choose' && !prize.swapping && !boxRoom[winner] && (
+              {prize.step === 'choose' && !prize.swapping && (
                 <>
                   <p>
-                    {mode === 'local' ? `${names[winner]}'s` : 'Your'} pencil box is full ({MAX_PENS} pens). What happens to the
-                    prize pen?
+                    What happens to the pen?
+                    {!boxRoom[winner] &&
+                      ` ${mode === 'local' ? `${names[winner]}'s` : 'Your'} pencil box is full (${MAX_PENS} pens), so keeping it means swapping one out.`}
                   </p>
                   <div className="prize-actions">
-                    <button type="button" className="btn btn-primary" onClick={() => setPrize({ step: 'choose', swapping: true })}>
-                      Swap it for one of mine
-                    </button>
+                    {boxRoom[winner] ? (
+                      <button type="button" className="btn btn-primary" onClick={() => settle('take', true)} autoFocus>
+                        Keep it in {mode === 'local' ? `${names[winner]}'s` : 'my'} pencil box
+                      </button>
+                    ) : (
+                      <button type="button" className="btn btn-primary" onClick={() => setPrize({ step: 'choose', swapping: true })} autoFocus>
+                        Swap it for one of mine
+                      </button>
+                    )}
                     <button type="button" className="btn btn-danger" onClick={() => setConfirmBreak(true)}>
                       Break it
                     </button>

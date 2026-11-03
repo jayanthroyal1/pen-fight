@@ -28,10 +28,10 @@ export function Splash({ onDone, loading = false }: Props) {
     <button type="button" className="splash" onClick={onDone} aria-label="Pen Fight. Tap to start.">
       <span className="splash-desk" aria-hidden>
         <span className="splash-pen splash-left">
-          <PenSwatch model="reynolds" />
+          <PenSwatch model="click-red" />
         </span>
         <span className="splash-pen splash-right">
-          <PenSwatch model="flamingo" />
+          <PenSwatch model="flamingo-gold" />
         </span>
         <span className="splash-clash">
           {Array.from({ length: 10 }, (_, i) => (

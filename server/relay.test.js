@@ -44,10 +44,10 @@ describe('room codes', () => {
   it('starts a match when a friend joins with the code', async () => {
     const a = await player();
     const b = await player();
-    a.send({ t: 'create', room: 'private', ...seat('Ravi', 'retro51', 'hanuman') });
+    a.send({ t: 'create', room: 'private', ...seat('Ravi', 'exec-gold-clip', 'hanuman') });
     const { code } = await a.next('created');
-    b.send({ t: 'join', code: code.toLowerCase(), room: 'private', ...seat('Sita', 'reynolds') });
-    const players = [seat('Ravi', 'retro51', 'hanuman'), seat('Sita', 'reynolds')];
+    b.send({ t: 'join', code: code.toLowerCase(), room: 'private', ...seat('Sita', 'clear-grip') });
+    const players = [seat('Ravi', 'exec-gold-clip', 'hanuman'), seat('Sita', 'clear-grip')];
     expect(await a.next('start')).toEqual({ t: 'start', you: 0, room: 'private', players });
     expect(await b.next('start')).toEqual({ t: 'start', you: 1, room: 'private', players });
 
@@ -59,16 +59,16 @@ describe('room codes', () => {
 
   it('explains an unknown code', async () => {
     const b = await player();
-    b.send({ t: 'join', code: 'ZZZZ', room: 'public', ...seat('B', 'cello') });
+    b.send({ t: 'join', code: 'ZZZZ', room: 'public', ...seat('B', 'click-red') });
     expect((await b.next('error')).message).toMatch(/No room called ZZZZ/);
   });
 
   it('turns away a player who picked a different bet', async () => {
     const a = await player();
     const b = await player();
-    a.send({ t: 'create', room: 'cbse', ...seat('A', 'cello') });
+    a.send({ t: 'create', room: 'cbse', ...seat('A', 'click-red') });
     const { code } = await a.next('created');
-    b.send({ t: 'join', code, room: 'public', ...seat('B', 'cello') });
+    b.send({ t: 'join', code, room: 'public', ...seat('B', 'click-red') });
     expect((await b.next('error')).message).toMatch(/₹75/);
   });
 
@@ -77,8 +77,8 @@ describe('room codes', () => {
     const b = await player();
     a.send({ t: 'create', room: 'public', name: 'A', loadout: { model: 'laser', power: 'godmode' } });
     const { code } = await a.next('created');
-    b.send({ t: 'join', code, room: 'public', ...seat('B', 'cello') });
-    expect((await a.next('start')).players[0].loadout).toEqual({ model: 'ballpoint', power: null });
+    b.send({ t: 'join', code, room: 'public', ...seat('B', 'click-red') });
+    expect((await a.next('start')).players[0].loadout).toEqual({ model: 'inkmax-aqua', power: null });
   });
 });
 
@@ -87,11 +87,11 @@ describe('quick match', () => {
     const a = await player();
     const b = await player();
     const c = await player();
-    a.send({ t: 'quick', room: 'public', ...seat('A', 'addgel') });
+    a.send({ t: 'quick', room: 'public', ...seat('A', 'teal-alu') });
     await a.next('queued');
-    c.send({ t: 'quick', room: 'international', ...seat('C', 'titan') });
+    c.send({ t: 'quick', room: 'international', ...seat('C', 'silver-line') });
     await c.next('queued');
-    b.send({ t: 'quick', room: 'public', ...seat('B', 'cello') });
+    b.send({ t: 'quick', room: 'public', ...seat('B', 'click-red') });
     expect((await a.next('start')).players.map((p) => p.name)).toEqual(['A', 'B']);
     expect((await b.next('start')).you).toBe(1);
 
@@ -103,24 +103,24 @@ describe('quick match', () => {
     const a = await player();
     const b = await player();
     const c = await player();
-    a.send({ t: 'quick', room: 'public', ...seat('A', 'cello') });
+    a.send({ t: 'quick', room: 'public', ...seat('A', 'click-red') });
     await a.next('queued');
     a.send({ t: 'cancel' });
-    b.send({ t: 'quick', room: 'public', ...seat('B', 'cello') });
+    b.send({ t: 'quick', room: 'public', ...seat('B', 'click-red') });
     await b.next('queued');
-    c.send({ t: 'quick', room: 'public', ...seat('C', 'reynolds') });
+    c.send({ t: 'quick', room: 'public', ...seat('C', 'clear-grip') });
     expect((await c.next('start')).you).toBe(1);
     expect((await b.next('start')).you).toBe(0);
   });
 
   it('skips a player who left', async () => {
     const a = await player();
-    a.send({ t: 'quick', room: 'public', ...seat('A', 'cello') });
+    a.send({ t: 'quick', room: 'public', ...seat('A', 'click-red') });
     await a.next('queued');
     a.close();
     await new Promise((r) => setTimeout(r, 50));
     const b = await player();
-    b.send({ t: 'quick', room: 'public', ...seat('B', 'cello') });
+    b.send({ t: 'quick', room: 'public', ...seat('B', 'click-red') });
     expect(await b.next('queued')).toEqual({ t: 'queued' });
   });
 });
