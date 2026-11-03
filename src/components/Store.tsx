@@ -42,68 +42,6 @@ export function Store({ profile, onSave, onBack }: Props) {
   const [power, setPower] = useState<PowerId | null>(null);
   const [target, setTarget] = useState<string | null>(null);
 
-  // Inline styles to prevent overlapping shop items
-  const itemStyle: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: '56px minmax(0, 1fr) auto',
-    gridTemplateRows: 'auto auto',
-    gridTemplateAreas: '"icon content price" "icon content action"',
-    alignItems: 'center',
-    columnGap: '12px',
-    rowGap: '8px',
-    width: '100%',
-    minWidth: 0,
-    minHeight: '100px',
-    height: 'auto',
-    padding: '12px',
-    margin: '0',
-    boxSizing: 'border-box',
-    position: 'relative',
-  };
-
-  const textStyle: React.CSSProperties = {
-    gridArea: 'content',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    minWidth: 0,
-    width: '100%',
-    height: 'auto',
-    position: 'static',
-    overflowWrap: 'anywhere',
-    wordBreak: 'normal',
-    whiteSpace: 'normal',
-    lineHeight: 1.4,
-  };
-
-  const priceStyle: React.CSSProperties = {
-    gridArea: 'price',
-    alignSelf: 'center',
-    justifySelf: 'end',
-    position: 'static',
-    whiteSpace: 'nowrap',
-    margin: 0,
-  };
-
-  const buttonStyle: React.CSSProperties = {
-    gridArea: 'action',
-    alignSelf: 'center',
-    justifySelf: 'end',
-    position: 'static',
-    minWidth: '75px',
-    width: 'auto',
-    maxWidth: '100%',
-    margin: 0,
-    whiteSpace: 'nowrap',
-  };
-
-  const iconStyle: React.CSSProperties = {
-    gridArea: 'icon',
-    alignSelf: 'center',
-    justifySelf: 'center',
-    flexShrink: 0,
-  };
-
   const full = !hasRoom(profile);
   const limit = boxLimit(profile);
 
@@ -117,6 +55,162 @@ export function Store({ profile, onSave, onBack }: Props) {
         ok: false,
       });
     }
+  };
+
+  // Independent layout styles — avoid conflicting card CSS classes.
+  const listStyle: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: '16px',
+    width: '100%',
+    maxWidth: '100%',
+    height: 'auto',
+    minWidth: 0,
+    padding: '12px',
+    margin: '0',
+    listStyle: 'none',
+    boxSizing: 'border-box',
+    position: 'static',
+  };
+
+  const cardStyle: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    alignContent: 'center',
+    gap: '12px',
+    width: '100%',
+    maxWidth: '100%',
+    minWidth: 0,
+    minHeight: '110px',
+    height: 'auto',
+    padding: '16px',
+    margin: '0',
+    boxSizing: 'border-box',
+    position: 'static',
+    inset: 'auto',
+    float: 'none',
+    clear: 'both',
+    overflow: 'visible',
+  };
+
+  const iconStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: '0 0 56px',
+    width: '56px',
+    minWidth: '56px',
+    maxWidth: '56px',
+    height: '56px',
+    position: 'static',
+    float: 'none',
+    margin: '0',
+    boxSizing: 'border-box',
+  };
+
+  const descriptionStyle: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+    flex: '1 1 140px',
+    minWidth: '0',
+    maxWidth: '100%',
+    height: 'auto',
+    position: 'static',
+    float: 'none',
+    margin: '0',
+    padding: '0',
+    overflow: 'visible',
+    whiteSpace: 'normal',
+    overflowWrap: 'anywhere',
+    wordBreak: 'normal',
+    lineHeight: 1.4,
+    boxSizing: 'border-box',
+  };
+
+  const nameStyle: React.CSSProperties = {
+    display: 'block',
+    position: 'static',
+    width: '100%',
+    height: 'auto',
+    margin: '0 0 4px',
+    padding: '0',
+    whiteSpace: 'normal',
+    overflowWrap: 'anywhere',
+    lineHeight: 1.3,
+  };
+
+  const metaStyle: React.CSSProperties = {
+    display: 'block',
+    position: 'static',
+    width: '100%',
+    height: 'auto',
+    margin: '2px 0 0',
+    padding: '0',
+    whiteSpace: 'normal',
+    overflowWrap: 'anywhere',
+    lineHeight: 1.4,
+  };
+
+  const priceStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: '0 0 auto',
+    position: 'static',
+    float: 'none',
+    width: 'auto',
+    maxWidth: '100%',
+    height: 'auto',
+    margin: '0',
+    padding: '8px 12px',
+    whiteSpace: 'nowrap',
+    boxSizing: 'border-box',
+  };
+
+  const actionStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: '0 0 auto',
+    position: 'static',
+    float: 'none',
+    inset: 'auto',
+    width: 'auto',
+    minWidth: '90px',
+    maxWidth: '100%',
+    height: 'auto',
+    margin: '0',
+    padding: '10px 16px',
+    whiteSpace: 'nowrap',
+    boxSizing: 'border-box',
+  };
+
+  const sectionStyle: React.CSSProperties = {
+    display: 'block',
+    position: 'static',
+    float: 'none',
+    width: '100%',
+    maxWidth: '100%',
+    minWidth: 0,
+    height: 'auto',
+    margin: '24px 0',
+    padding: '0',
+    boxSizing: 'border-box',
+    overflow: 'visible',
+  };
+
+  const headingStyle: React.CSSProperties = {
+    display: 'block',
+    position: 'static',
+    width: '100%',
+    height: 'auto',
+    margin: '0 0 12px',
+    padding: '0',
+    lineHeight: 1.4,
+    whiteSpace: 'normal',
   };
 
   return (
@@ -180,6 +274,7 @@ export function Store({ profile, onSave, onBack }: Props) {
                     <li key={m.id} className="shop-item">
                       <PenSwatch model={m.id} />
                       <PenLabel pen={{ model: m.id, power: null }} />
+
                       <span className="price-tag">₹{m.price}</span>
 
                       <button
@@ -206,7 +301,17 @@ export function Store({ profile, onSave, onBack }: Props) {
 
       {/* SUPER POWERS TAB */}
       {tab === 'boosts' && (
-        <div className="shelves">
+        <div
+          style={{
+            display: 'block',
+            position: 'static',
+            width: '100%',
+            maxWidth: '100%',
+            height: 'auto',
+            minWidth: 0,
+            boxSizing: 'border-box',
+          }}
+        >
           <p className="muted">
             In a match, the lightning button at the bottom of the desk opens your
             powers. On your turn, use one for your shot; while the other player
@@ -216,69 +321,59 @@ export function Store({ profile, onSave, onBack }: Props) {
           </p>
 
           {(['mine', 'theirs', 'round'] as const).map((timing) => (
-            <section key={timing} className="shelf">
-              <h2>{TIMING[timing]}</h2>
+            <section key={timing} style={sectionStyle}>
+              <h2 style={headingStyle}>{TIMING[timing]}</h2>
 
-              <ul
-                className="shelf-items powers"
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '16px',
-                  padding: '12px',
-                  margin: 0,
-                  listStyle: 'none',
-                  width: '100%',
-                  boxSizing: 'border-box',
-                }}
-              >
+              <ul style={listStyle}>
                 {BOOSTS.filter((b) => b.timing === timing).map((b) => {
                   const have = boostCount(profile, b.id);
 
                   return (
                     <li
                       key={b.id}
-                      className="shop-item power-item boost-item"
                       style={{
-                        ...itemStyle,
-                        '--boost': b.color,
-                      } as React.CSSProperties}
+                        ...cardStyle,
+                        border: '2px solid #d6c4a5',
+                        borderRadius: '14px',
+                        background: 'rgba(255, 250, 240, 0.96)',
+                        color: '#49301f',
+                      }}
                     >
-                      <span className="boost-chip" aria-hidden style={iconStyle}>
+                      <span
+                        aria-hidden
+                        style={{
+                          ...iconStyle,
+                          borderRadius: '12px',
+                          background: '#292929',
+                          color: b.color,
+                        }}
+                      >
                         <BoostIcon id={b.id} />
                       </span>
 
-                      <span className="pen-text" style={textStyle}>
-                        <span
-                          className="pen-name"
-                          style={{ display: 'block', position: 'static', lineHeight: 1.3 }}
-                        >
-                          {b.name}
-                        </span>
+                      <div style={descriptionStyle}>
+                        <span style={nameStyle}>{b.name}</span>
+                        <span style={metaStyle}>{b.tagline}</span>
+                        <span style={metaStyle}>You have {have}</span>
+                      </div>
 
-                        <span
-                          className="pen-meta"
-                          style={{ display: 'block', position: 'static', whiteSpace: 'normal' }}
-                        >
-                          {b.tagline}
-                        </span>
-
-                        <span
-                          className="pen-meta"
-                          style={{ display: 'block', position: 'static' }}
-                        >
-                          You have {have}
-                        </span>
-                      </span>
-
-                      <span className="price-tag" style={priceStyle}>
+                      <span
+                        style={{
+                          ...priceStyle,
+                          color: '#b3261e',
+                          background: '#fff',
+                          borderRadius: '10px',
+                          fontWeight: 700,
+                          fontSize: '1.1em',
+                        }}
+                      >
                         ₹{b.price}
                       </span>
 
                       <button
                         type="button"
                         className="btn btn-secondary btn-small"
-                        style={buttonStyle}
+                        style={actionStyle}
                         onClick={() =>
                           attempt(
                             () => buyBoost(profile, b.id),
@@ -299,68 +394,85 @@ export function Store({ profile, onSave, onBack }: Props) {
 
       {/* HERO POWERS TAB */}
       {tab === 'powers' && (
-        <div className="shelves">
+        <div
+          style={{
+            display: 'block',
+            position: 'static',
+            float: 'none',
+            width: '100%',
+            maxWidth: '100%',
+            minWidth: 0,
+            height: 'auto',
+            margin: '0',
+            padding: '0',
+            boxSizing: 'border-box',
+            overflow: 'visible',
+          }}
+        >
           <p className="muted">
             A power goes on one pen: new colours, its own entrance, flick and
             strike, a finishing move and a little extra hit power. If you lose
             that pen, the power goes with it.
           </p>
 
-          <ul
-            className="shelf-items powers"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px',
-              padding: '12px',
-              margin: 0,
-              listStyle: 'none',
-              width: '100%',
-              boxSizing: 'border-box',
-            }}
-          >
+          <ul style={listStyle}>
             {POWERS.map((p) => (
               <li
                 key={p.id}
-                className={`shop-item power-item${power === p.id ? ' is-selected' : ''}`}
-                style={itemStyle}
+                style={{
+                  ...cardStyle,
+                  border: power === p.id
+                    ? '3px solid #244a96'
+                    : '2px solid #d6c4a5',
+                  borderRadius: '14px',
+                  background: '#fffaf0',
+                  color: '#49301f',
+                }}
               >
                 <span
-                  className="power-chip"
+                  aria-hidden
                   style={{
                     ...iconStyle,
+                    flex: '0 0 auto',
+                    width: 'auto',
+                    minWidth: '100px',
+                    maxWidth: '140px',
+                    height: 'auto',
+                    minHeight: '64px',
+                    padding: '10px',
+                    borderRadius: '12px',
                     background: p.color,
                     color: p.accent,
+                    fontWeight: 800,
+                    textAlign: 'center',
+                    overflowWrap: 'anywhere',
                   }}
-                  aria-hidden
                 >
                   {p.shout.replace('!', '')}
                 </span>
 
-                <span className="pen-text" style={textStyle}>
-                  <span
-                    className="pen-name"
-                    style={{ display: 'block', position: 'static', lineHeight: 1.3 }}
-                  >
-                    {p.name}
-                  </span>
+                <div style={descriptionStyle}>
+                  <span style={nameStyle}>{p.name}</span>
+                  <span style={metaStyle}>{p.tagline}</span>
+                </div>
 
-                  <span
-                    className="pen-meta"
-                    style={{ display: 'block', position: 'static', whiteSpace: 'normal' }}
-                  >
-                    {p.tagline}
-                  </span>
-                </span>
-
-                <span className="price-tag" style={priceStyle}>
+                <span
+                  style={{
+                    ...priceStyle,
+                    color: '#b3261e',
+                    background: '#fff',
+                    borderRadius: '10px',
+                    fontWeight: 700,
+                    fontSize: '1.1em',
+                  }}
+                >
                   ₹{p.price}
                 </span>
 
                 <button
                   type="button"
                   className="btn btn-secondary btn-small"
-                  style={buttonStyle}
+                  style={actionStyle}
                   aria-pressed={power === p.id}
                   onClick={() => {
                     if (profile.rupees < p.price) {
@@ -385,7 +497,9 @@ export function Store({ profile, onSave, onBack }: Props) {
 
           {power && (
             <section className="slip">
-              <h2>Which pen gets {POWERS.find((p) => p.id === power)!.name}?</h2>
+              <h2>
+                Which pen gets {POWERS.find((p) => p.id === power)!.name}?
+              </h2>
 
               <PenBox
                 pens={profile.pens}
