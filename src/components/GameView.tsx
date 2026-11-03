@@ -80,17 +80,6 @@ const maxPull = (canvas: HTMLCanvasElement) => Math.max(90, 0.32 * Math.min(canv
 /** How close (CSS px) a press must be to the pen to grab it; wider for a fingertip. */
 const grabRadius = (e: React.PointerEvent) => (e.pointerType === 'touch' ? 34 : 20);
 
-/** Remembers whether the player keeps the powers panel open. */
-const POWERS_OPEN_KEY = 'penfight:powers-open';
-
-function readPowersOpen(): boolean {
-  try {
-    return localStorage.getItem(POWERS_OPEN_KEY) !== '0';
-  } catch {
-    return true;
-  }
-}
-
 /** How often (ms) an online shooter's aim is sent to the other player. */
 const AIM_SEND_MS = 80;
 
@@ -186,7 +175,8 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
   const [free, setFree] = useState<[boolean, boolean]>([bags[0] !== null, bags[1] !== null]);
   const freeRef = useRef(free);
   freeRef.current = free;
-  const [powersOpen, setPowersOpen] = useState(readPowersOpen);
+  // The list of powers floats up only when the powers button is tapped.
+  const [powersOpen, setPowersOpen] = useState(false);
   const [boostMsg, setBoostMsg] = useState<string | null>(null);
   const spendRef = useRef(onSpendBoost);
   spendRef.current = onSpendBoost;
@@ -278,17 +268,17 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
         commit(disarmBoost(s, player));
         setBoostMsg(null);
         tell(null);
-        return;
+        return true;
       }
       const problem = boostProblem(s, player, id);
       if (problem) {
         if (!fromPeer) setBoostMsg(problem);
-        return;
+        return false;
       }
       const bag = leftRef.current[player];
       if (!fromPeer && bag && !freeRef.current[player] && (bag[id] ?? 0) <= 0) {
         setBoostMsg(`You have no ${boostOf(id).name} left. Buy more in the store.`);
-        return;
+        return false;
       }
       sounds.unlock();
       commit(armBoost(s, player, id));
@@ -297,6 +287,7 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
       sceneRef.current?.armBoost(id, s.pens[player]);
       buzz(20);
       tell(id);
+      return true;
     },
     [commit, online],
   );
@@ -688,6 +679,8 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     sounds.unlock();
+    // Touching the desk to play puts the powers list away.
+    setPowersOpen(false);
     if (!canAim() || dragRef.current) return;
     const s = stateRef.current;
     const hit = hitOnScreen(e, s.turn);
@@ -769,15 +762,15 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
     return g.role === 'attack' ? 'For your shot' : `Against ${names[hud.turn]}'s shot`;
   };
   const togglePowers = () => {
-    const open = !powersOpen;
-    setPowersOpen(open);
+    setPowersOpen(!powersOpen);
     setBoostMsg(null);
-    try {
-      localStorage.setItem(POWERS_OPEN_KEY, open ? '1' : '0');
-    } catch {
-      // Remembering is only a convenience.
-    }
   };
+  /** Picking a power (or taking it back) closes the list. */
+  const pickPower = (player: PlayerId, id: BoostId) => {
+    if (toggleBoost(player, id)) setPowersOpen(false);
+  };
+  // The power this device's player has on, shown on the button once the list closes.
+  const chosenHere = groups.map((g) => chosenBoost(hud, g.player)).find((id) => id !== null) ?? null;
 
   const winner = hud.phase === 'matchOver' ? matchWinner(hud) : hud.roundWinner;
   const loser = winner === null ? null : other(winner);
@@ -853,27 +846,34 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
 
         {barOpen && (
           <div className="powers">
+            {boostMsg && (
+              <p className="power-msg" role="alert">
+                {boostMsg}
+              </p>
+            )}
             {powersOpen && (
-              <div id="power-panel" className="power-bar" role="group" aria-label="Super powers">
+              <div id="power-panel" className="power-list" role="group" aria-label="Super powers">
                 {hud.phase === 'moving' ? (
                   <p className="power-head">Powers are used before a flick. Wait for the pens to stop.</p>
                 ) : (
                   groups.map((g) => (
                     <div key={g.role} className="power-group">
                       <p className="power-head">{groupTitle(g)}</p>
-                      {BOOSTS.filter((b) => (g.role === 'attack' ? b.timing !== 'theirs' : b.timing !== 'mine')).map((b) => {
+                      {BOOSTS.filter((b) => (g.role === 'attack' ? b.timing !== 'theirs' : b.timing !== 'mine')).map((b, i) => {
                         const armed = chosenBoost(hud, g.player) === b.id;
                         return (
                           <button
                             key={b.id}
                             type="button"
                             className={`power-btn${armed ? ' is-armed' : ''}${!armed && !canUse(g.player, b.id) ? ' is-empty' : ''}`}
-                            style={{ '--boost': b.color } as React.CSSProperties}
+                            style={{ '--boost': b.color, '--i': i } as React.CSSProperties}
                             aria-pressed={armed}
                             title={b.tagline}
-                            onClick={() => toggleBoost(g.player, b.id)}
+                            onClick={() => pickPower(g.player, b.id)}
                           >
-                            <BoostIcon id={b.id} />
+                            <span className="power-icon">
+                              <BoostIcon id={b.id} />
+                            </span>
                             <span className="power-name">{b.name}</span>
                           </button>
                         );
@@ -881,22 +881,18 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
                     </div>
                   ))
                 )}
-                {boostMsg && (
-                  <span className="power-msg" role="alert">
-                    {boostMsg}
-                  </span>
-                )}
               </div>
             )}
             <button
               type="button"
-              className={`powers-toggle${powersOpen ? ' is-open' : ''}`}
+              className={`powers-toggle${powersOpen ? ' is-open' : ''}${chosenHere ? ' is-armed' : ''}`}
+              style={chosenHere ? ({ '--boost': boostOf(chosenHere).color } as React.CSSProperties) : undefined}
               aria-expanded={powersOpen}
               aria-controls="power-panel"
-              title={powersOpen ? 'Hide super powers' : 'Show super powers'}
+              title={powersOpen ? 'Hide super powers' : chosenHere ? `${boostOf(chosenHere).name} is on` : 'Show super powers'}
               onClick={togglePowers}
             >
-              <BoostIcon id="lightning" />
+              <BoostIcon id={chosenHere ?? 'lightning'} />
               <span className="visually-hidden">{powersOpen ? 'Hide super powers' : 'Show super powers'}</span>
             </button>
           </div>

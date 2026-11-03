@@ -1936,162 +1936,11 @@ div.room-card.is-locked {
   color: var(--natraj);
 }
 
-/* Super powers: the bar of armed-before-you-flick boosts along the bottom of the desk. */
-.powers {
-  position: absolute;
-  left: var(--space-3);
-  right: var(--space-3);
-  bottom: var(--space-3);
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  pointer-events: none;
-}
-
-.powers > * {
-  pointer-events: auto;
-}
-
-.power-bar {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  max-width: 100%;
-  margin-right: auto;
-  margin-left: auto;
-  padding: var(--space-2);
-  background: rgba(20, 14, 10, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-}
-
-.power-group {
-  display: flex;
-  flex-basis: 100%;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-2);
-}
-
-.power-head {
-  flex-basis: 100%;
-  margin: 0;
-  color: var(--cream);
-  font-size: 0.95rem;
-  text-align: center;
-}
-
-.power-btn.is-empty {
-  opacity: 0.45;
-}
-
-.powers-toggle {
-  position: relative;
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 52px;
-  height: 52px;
-  color: #7fd4ff;
-  background: radial-gradient(circle at 50% 35%, #3a2c20, #1d1712 70%);
-  border: 2px solid rgba(127, 212, 255, 0.55);
-  border-radius: 50%;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-  cursor: pointer;
-}
-
-.powers-toggle .boost-icon {
-  width: 26px;
-  height: 26px;
-  filter: drop-shadow(0 0 6px rgba(127, 212, 255, 0.8));
-}
-
-.powers-toggle.is-open {
-  border-color: #7fd4ff;
-  box-shadow: 0 0 0 3px rgba(127, 212, 255, 0.25), 0 4px 14px rgba(0, 0, 0, 0.45);
-}
-
-.powers-toggle:focus-visible {
-  outline: 2px solid #7fd4ff;
-  outline-offset: 3px;
-}
-
-
-.power-btn {
-  --boost: #ffffff;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: 44px;
-  padding: var(--space-1) var(--space-2);
-  color: var(--label);
-  font: inherit;
-  font-size: 0.95rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.2)), #2b2119;
-  border: 1px solid color-mix(in srgb, var(--boost) 45%, transparent);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-}
-
-.power-btn .boost-icon {
-  color: var(--boost);
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--boost) 60%, transparent));
-}
-
-.power-btn:hover {
-  border-color: var(--boost);
-}
-
-.power-btn:focus-visible {
-  outline: 2px solid var(--boost);
-  outline-offset: 2px;
-}
-
-.power-btn.is-armed {
-  border-color: var(--boost);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--boost) 55%, transparent), 0 0 18px color-mix(in srgb, var(--boost) 70%, transparent);
-  transform: translateY(-2px);
-}
-
-.power-count {
-  min-width: 2ch;
-  color: var(--muted);
-  font-family: var(--font-type);
-  font-size: 0.85rem;
-}
-
-.power-btn.is-armed .power-count {
-  color: var(--boost);
-}
-
-.power-empty,
-.power-msg {
-  padding: 0 var(--space-2);
-  color: var(--cream);
-  font-size: 0.95rem;
-}
-
-.power-msg {
-  flex-basis: 100%;
-  text-align: center;
-  color: #ffd0a8;
-}
-
 .boost-note {
   color: #9fd8ff;
 }
 
 
-@media (prefers-reduced-motion: reduce) {
-  .power-btn {
-    transition: none;
-  }
-}
 
 .boost-chip {
   display: grid;
@@ -2111,41 +1960,177 @@ div.room-card.is-locked {
   filter: drop-shadow(0 0 5px color-mix(in srgb, var(--boost) 70%, transparent));
 }
 
-@media (max-width: 640px) {
-  /* On a phone the powers sit under the desk, not over it. */
-  .powers {
-    position: static;
-    margin-top: var(--space-2);
+/*
+ * Super powers in a match: a round button at the bottom right of the desk. Tapping it
+ * floats the powers up above it in a column; picking one closes the column again.
+ */
+.powers {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  max-width: calc(100% - 2 * var(--space-3));
+  pointer-events: none;
+}
+
+.powers > * {
+  pointer-events: auto;
+}
+
+.power-list {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  max-height: calc(100% - 64px);
+  overflow-y: auto;
+}
+
+.power-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.power-head {
+  margin: 0;
+  padding: 1px var(--space-2);
+  color: var(--label);
+  font-size: 0.75rem;
+  line-height: 1.3;
+  text-align: right;
+  background: rgba(20, 14, 10, 0.7);
+  border-radius: 6px;
+}
+
+.power-btn {
+  --boost: #ffffff;
+  display: inline-flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: 0;
+  color: var(--label);
+  font: inherit;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  animation: power-float-in 0.22s ease-out both;
+  animation-delay: calc(var(--i, 0) * 35ms);
+}
+
+.power-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  color: var(--boost);
+  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--boost) 35%, #1d1712), #1d1712 72%);
+  border: 1px solid color-mix(in srgb, var(--boost) 60%, transparent);
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+/* A small name tag beside each icon. */
+.power-name {
+  padding: 1px var(--space-2);
+  background: rgba(20, 14, 10, 0.72);
+  border-radius: 999px;
+}
+
+.power-icon .boost-icon {
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--boost) 75%, transparent));
+}
+
+.power-btn:hover .power-icon {
+  border-color: var(--boost);
+}
+
+.power-btn:focus-visible {
+  outline: none;
+}
+
+.power-btn:focus-visible .power-icon {
+  outline: 2px solid var(--boost);
+  outline-offset: 2px;
+}
+
+.power-btn.is-armed .power-icon {
+  border-color: var(--boost);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--boost) 50%, transparent), 0 0 16px color-mix(in srgb, var(--boost) 65%, transparent);
+}
+
+.power-btn.is-empty {
+  opacity: 0.45;
+}
+
+.power-msg {
+  max-width: 18em;
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  color: #ffd9b8;
+  font-size: 0.9rem;
+  line-height: 1.3;
+  text-align: right;
+  background: rgba(20, 14, 10, 0.85);
+  border-radius: 6px;
+}
+
+.powers-toggle {
+  --boost: #7fd4ff;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  color: var(--boost);
+  background: radial-gradient(circle at 50% 35%, #3a2c20, #1d1712 70%);
+  border: 2px solid color-mix(in srgb, var(--boost) 55%, transparent);
+  border-radius: 50%;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.powers-toggle .boost-icon {
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--boost) 80%, transparent));
+}
+
+.powers-toggle.is-open,
+.powers-toggle.is-armed {
+  border-color: var(--boost);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--boost) 30%, transparent), 0 6px 16px rgba(0, 0, 0, 0.5);
+}
+
+.powers-toggle:focus-visible {
+  outline: 2px solid var(--boost);
+  outline-offset: 3px;
+}
+
+@keyframes power-float-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
 
-  .power-bar {
-    flex: 1;
-    overflow-x: auto;
+  to {
+    opacity: 1;
+    transform: none;
   }
+}
 
-  .power-head {
-    flex-basis: auto;
-    flex: none;
-    align-self: center;
-    max-width: 7.5em;
-    font-size: 0.8rem;
-    line-height: 1.2;
-    text-align: left;
-  }
 
+@media (prefers-reduced-motion: reduce) {
   .power-btn {
-    flex: none;
-    gap: var(--space-1);
-    font-size: 0.85rem;
-  }
-
-  .power-group {
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-  }
-
-  .power-msg {
-    flex: none;
-    flex-basis: auto;
+    animation: none;
   }
 }
