@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { WIN_SCORE, newMatch, nextRound, resolveShot } from './rules';
+import { DESK } from './physics';
+import { WIN_SCORE, isFinalRound, matchWinner, newMatch, nextRound, resolveShot } from './rules';
 import type { GameState } from './types';
 
 function withOut(state: GameState, out: [boolean, boolean]): GameState {
@@ -11,6 +12,14 @@ function withOut(state: GameState, out: [boolean, boolean]): GameState {
     ],
   };
 }
+
+describe('start', () => {
+  it('puts player 1 at the near end and player 2 at the far end', () => {
+    const s = newMatch();
+    expect(s.pens[0].x).toBeGreaterThan(DESK.width / 2);
+    expect(s.pens[1].x).toBeLessThan(DESK.width / 2);
+  });
+});
 
 describe('resolveShot', () => {
   it('passes the turn when nobody falls', () => {
@@ -33,25 +42,44 @@ describe('resolveShot', () => {
     expect(s.roundReason).toBe('fell');
   });
 
-  it('counts both pens falling as a loss for the shooter', () => {
+  it('calls it a draw when both pens fall, with no point to anyone', () => {
     const s = resolveShot(withOut(newMatch(), [true, true]), 0);
-    expect(s.roundWinner).toBe(1);
-  });
-
-  it('ends the match at the winning score', () => {
-    const start: GameState = { ...newMatch(), scores: [WIN_SCORE - 1, 0] };
-    const s = resolveShot(withOut(start, [false, true]), 0);
-    expect(s.phase).toBe('matchOver');
+    expect(s.roundWinner).toBeNull();
+    expect(s.roundReason).toBe('draw');
+    expect(s.scores).toEqual([0, 0]);
+    expect(s.phase).toBe('roundOver');
   });
 });
 
-describe('nextRound', () => {
-  it('resets the desk and lets the round loser shoot first', () => {
-    const won = resolveShot(withOut(newMatch(), [false, true]), 0);
-    const s = nextRound(won);
+describe('best of three', () => {
+  it('two straight wins take the match: no third round', () => {
+    let s = resolveShot(withOut(newMatch(), [false, true]), 0);
+    s = nextRound(s);
+    s = resolveShot(withOut({ ...s, turn: 0 }, [false, true]), 0);
+    expect(s.scores).toEqual([WIN_SCORE, 0]);
+    expect(s.phase).toBe('matchOver');
+    expect(matchWinner(s)).toBe(0);
+  });
+
+  it('one win each makes the next round the final round', () => {
+    let s = resolveShot(withOut(newMatch(), [false, true]), 0);
+    s = nextRound(s);
+    s = resolveShot(withOut(s, [true, false]), 1);
+    expect(s.scores).toEqual([1, 1]);
+    expect(s.phase).toBe('roundOver');
+    expect(isFinalRound(nextRound(s))).toBe(true);
+  });
+
+  it('after a draw the other player starts the next round', () => {
+    const drawn = resolveShot(withOut(newMatch(), [true, true]), 0);
+    const s = nextRound(drawn);
     expect(s.round).toBe(2);
     expect(s.turn).toBe(1);
     expect(s.pens.every((p) => !p.out)).toBe(true);
-    expect(s.scores).toEqual([1, 0]);
+  });
+
+  it('the round loser shoots first in the next round', () => {
+    const won = resolveShot(withOut(newMatch(), [false, true]), 0);
+    expect(nextRound(won).turn).toBe(1);
   });
 });

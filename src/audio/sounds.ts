@@ -2,12 +2,16 @@
  * Pen fight sounds, synthesised with Web Audio so no files ship with the game:
  * a finger flick, plastic (or metal) pens clacking, taps on the wooden desk,
  * a pen sliding, a pen clattering on the floor after falling off, and the
- * class clapping for whoever wins.
+ * class clapping for whoever wins, the classroom chattering in the background,
+ * and each hero power's own sounds.
  */
 
+import type { PowerId } from '../game/powers';
 import { renderApplause, type ApplauseOptions } from './applause';
+import { loadChatter, type NoisePreset } from './chatter';
 
 const MUTE_KEY = 'penfight:muted';
+const CHATTER_KEY = 'penfight:chatter';
 
 export type Win = 'round' | 'match';
 
@@ -27,7 +31,13 @@ class SoundBoard {
   private last = { hit: 0, desk: 0 };
   private applauseBuffers: Partial<Record<Win, AudioBuffer>> = {};
   private applausePlaying: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
+  private chatterGain: GainNode | null = null;
+  private chatterSrc: AudioBufferSourceNode | null = null;
+  private chatterBuffers = new Map<NoisePreset, Promise<AudioBuffer>>();
+  private wantChatter: NoisePreset | null = null;
   muted = readMuted();
+  /** Classroom chatter volume, 0 (off) to 1; set by the player and remembered. */
+  chatterVolume = readChatterVolume();
 
   /** Must run inside a user gesture the first time (browser autoplay rules). */
   unlock(): void {
@@ -42,6 +52,8 @@ class SoundBoard {
       // Build the crowds now, off the moment of victory, so a win never stutters.
       window.setTimeout(() => this.applauseBuffer('round'), 0);
       window.setTimeout(() => this.applauseBuffer('match'), 50);
+      // Chatter asked for before the first tap starts now.
+      if (this.wantChatter) this.startChatter(this.wantChatter);
     }
     if (this.ctx.state === 'suspended') void this.ctx.resume();
   }
@@ -75,6 +87,127 @@ class SoundBoard {
     playing.gain.gain.setTargetAtTime(0.0001, t, 0.15);
     playing.src.stop(t + 0.8);
     this.applausePlaying = null;
+  }
+
+  /** Starts the room's background chatter (if not already playing it). */
+  startChatter(noise: NoisePreset): void {
+    this.wantChatter = noise;
+    const ctx = this.ctx;
+    if (!ctx || !this.master) return;
+    if (!this.chatterGain) {
+      this.chatterGain = ctx.createGain();
+      this.chatterGain.gain.value = this.chatterVolume * 0.7;
+      this.chatterGain.connect(this.master);
+    }
+    let buffer = this.chatterBuffers.get(noise);
+    if (!buffer) {
+      buffer = loadChatter(ctx, noise);
+      this.chatterBuffers.set(noise, buffer);
+    }
+    void buffer.then((buf) => {
+      if (this.wantChatter !== noise || !this.chatterGain) return;
+      this.chatterSrc?.stop();
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.connect(this.chatterGain);
+      src.start();
+      this.chatterSrc = src;
+    });
+  }
+
+  stopChatter(): void {
+    this.wantChatter = null;
+    this.chatterSrc?.stop();
+    this.chatterSrc = null;
+  }
+
+  setChatterVolume(v: number): void {
+    this.chatterVolume = Math.min(1, Math.max(0, v));
+    try {
+      localStorage.setItem(CHATTER_KEY, String(this.chatterVolume));
+    } catch {
+      // Remembering is only a convenience.
+    }
+    if (this.chatterGain && this.ctx) this.chatterGain.gain.setTargetAtTime(this.chatterVolume * 0.7, this.ctx.currentTime, 0.05);
+  }
+
+  /** A hero's sound: on its entrance, on each strike, and when it breaks a pen. */
+  hero(power: PowerId, loud = 1): void {
+    const a = this.audio();
+    if (!a) return;
+    const { t } = a;
+    const g = 0.5 + loud * 0.5;
+    switch (power) {
+      case 'giant':
+        // A deep boom with a rumble.
+        this.tone(t, 90, 0.5, 0.9 * g, 38);
+        this.noiseBurst(t, 0.5, 'lowpass', 220, 0.7, 0.8 * g);
+        break;
+      case 'webflick':
+        // Thwip: a quick rising hiss.
+        this.sweep(t, 900, 6000, 0.09, 0.6 * g);
+        break;
+      case 'comet':
+        // Whoosh: falling, then fading.
+        this.sweep(t, 3200, 380, 0.6, 0.55 * g);
+        break;
+      case 'nightwing':
+        this.noiseBurst(t, 0.06, 'bandpass', 1400, 1.2, 0.8 * g);
+        this.tone(t, 120, 0.18, 0.6 * g, 70);
+        break;
+      case 'amazon':
+        // A bright chime with a rope swish.
+        this.tone(t, 1320, 0.9, 0.2 * g);
+        this.tone(t + 0.05, 1980, 0.7, 0.14 * g);
+        this.sweep(t, 600, 2200, 0.3, 0.3 * g);
+        break;
+      case 'chakra':
+        // A spinning whirr.
+        this.tone(t, 160, 0.6, 0.25 * g, 520);
+        this.sweep(t, 400, 2400, 0.6, 0.35 * g);
+        break;
+      case 'hanuman':
+        // A temple bell: inharmonic partials with a long ring, and a low boom.
+        for (const [f, gain, dur] of [
+          [220, 0.35, 2.4],
+          [330 * 1.02, 0.22, 1.9],
+          [540, 0.16, 1.5],
+          [880 * 0.99, 0.1, 1.1],
+        ] as const) {
+          this.tone(t, f, dur, gain * g);
+        }
+        this.tone(t, 70, 0.6, 0.7 * g, 40);
+        break;
+    }
+  }
+
+  /** A pen snapping in half, and the pieces clattering. */
+  snap(): void {
+    const a = this.audio();
+    if (!a) return;
+    const { t } = a;
+    this.noiseBurst(t, 0.03, 'highpass', 2500, 0.8, 1);
+    this.noiseBurst(t + 0.01, 0.09, 'bandpass', 1800, 2, 0.7);
+    this.tone(t, 260, 0.08, 0.5, 120);
+    this.fall(false);
+  }
+
+  private sweep(t: number, from: number, to: number, dur: number, gain: number): void {
+    const ctx = this.ctx!;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.Q.value = 2;
+    f.frequency.setValueAtTime(from, t);
+    f.frequency.exponentialRampToValueAtTime(to, t + dur);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.exponentialRampToValueAtTime(gain, t + dur * 0.3);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(env).connect(this.master!);
+    src.start(t, Math.random() * 0.3, dur + 0.05);
   }
 
   private applauseBuffer(win: Win): AudioBuffer {
@@ -218,6 +351,15 @@ function makeNoise(ctx: AudioContext): AudioBuffer {
   const data = buf.getChannelData(0);
   for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
   return buf;
+}
+
+function readChatterVolume(): number {
+  try {
+    const v = Number(localStorage.getItem(CHATTER_KEY));
+    return localStorage.getItem(CHATTER_KEY) === null || Number.isNaN(v) ? 0.6 : Math.min(1, Math.max(0, v));
+  } catch {
+    return 0.6;
+  }
 }
 
 function readMuted(): boolean {

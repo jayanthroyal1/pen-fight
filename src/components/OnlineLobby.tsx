@@ -1,15 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
-import { penModel, type PenModelId } from '../game/pens';
+import { penModel } from '../game/pens';
+import { power as powerOf } from '../game/powers';
+import type { Room } from '../game/rooms';
 import type { PlayerId } from '../game/types';
 import { OnlineClient } from '../net/client';
 import { inviteLink, isRoomCode } from '../net/invite';
-import type { ClientMsg } from '../net/protocol';
+import type { ClientMsg, Seat } from '../net/protocol';
+import { Rupees } from './PenBox';
 
 interface Props {
-  model: PenModelId;
-  /** Room to join straight away, from an invite link. */
+  /** The bet room you're playing in. */
+  room: Room;
+  /** Your name and the pen you bring. */
+  seat: Seat;
+  /** Room code to join straight away, from an invite link. */
   joinCode?: string;
-  onStart: (client: OnlineClient, me: PlayerId, models: [PenModelId, PenModelId]) => void;
+  onStart: (client: OnlineClient, me: PlayerId, players: [Seat, Seat]) => void;
   onBack: () => void;
 }
 
@@ -21,7 +27,7 @@ type LobbyState =
 
 const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
-export function OnlineLobby({ model, joinCode, onStart, onBack }: Props) {
+export function OnlineLobby({ room, seat, joinCode, onStart, onBack }: Props) {
   const [lobby, setLobby] = useState<LobbyState>(joinCode ? { kind: 'connecting', doing: 'join' } : { kind: 'idle' });
   const [code, setCode] = useState(joinCode ?? '');
   const [error, setError] = useState<string | null>(null);
@@ -44,13 +50,15 @@ export function OnlineLobby({ model, joinCode, onStart, onBack }: Props) {
         setLobby({ kind: 'idle' });
       } else if (msg.t === 'start') {
         startedRef.current = true;
-        onStart(client, msg.you, msg.models);
+        onStart(client, msg.you, msg.players);
       }
     });
     return client;
   };
 
-  const run = async (msg: ClientMsg & { t: 'create' | 'join' | 'quick' }) => {
+  type Ask = { t: 'create' } | { t: 'quick' } | { t: 'join'; code: string };
+  const run = async (ask: Ask) => {
+    const msg = { ...ask, room: room.id, ...seat } as ClientMsg & { t: Ask['t'] };
     setError(null);
     setCopied(false);
     setLobby({ kind: 'connecting', doing: msg.t });
@@ -74,7 +82,7 @@ export function OnlineLobby({ model, joinCode, onStart, onBack }: Props) {
   // React's development double-mount settle before connecting.
   useEffect(() => {
     if (!joinCode) return;
-    const id = window.setTimeout(() => void run({ t: 'join', code: joinCode, model }), 0);
+    const id = window.setTimeout(() => void run({ t: 'join', code: joinCode }), 0);
     return () => window.clearTimeout(id);
     // Runs once, on arrival from an invite link.
   }, []);
@@ -93,16 +101,16 @@ export function OnlineLobby({ model, joinCode, onStart, onBack }: Props) {
       setError('Room codes are 4 letters, like QWER. Check the code with your friend.');
       return;
     }
-    void run({ t: 'join', code: trimmed, model });
+    void run({ t: 'join', code: trimmed });
   };
 
-  const link = lobby.kind === 'waiting' ? inviteLink(lobby.code) : '';
+  const link = lobby.kind === 'waiting' ? inviteLink({ code: lobby.code, room: room.id }) : '';
 
   const share = async () => {
     try {
       await navigator.share({
         title: 'Pen Fight',
-        text: `Pen fight me! Room ${lobby.kind === 'waiting' ? lobby.code : ''}`,
+        text: `Pen fight me for ₹${room.bet}! Room ${lobby.kind === 'waiting' ? lobby.code : ''}`,
         url: link,
       });
     } catch {
@@ -122,9 +130,14 @@ export function OnlineLobby({ model, joinCode, onStart, onBack }: Props) {
   const busy = lobby.kind === 'connecting';
 
   return (
-    <main className="menu paper">
-      <h1>Play online</h1>
-      <p className="tagline">Your pen: {penModel(model).name}</p>
+    <main className="cover">
+      <header className="name-label">
+        <h1 className="label-title">{room.name}</h1>
+        <p className="label-note">
+          Bet <Rupees amount={room.bet} /> · your pen: {penModel(seat.loadout.model).name}
+          {seat.loadout.power && ` (${powerOf(seat.loadout.power).name})`}
+        </p>
+      </header>
 
       {lobby.kind === 'waiting' && (
         <section className="lobby-wait" aria-live="polite">
@@ -175,8 +188,8 @@ export function OnlineLobby({ model, joinCode, onStart, onBack }: Props) {
         <>
           <section className="lobby-panel">
             <h2>Play anyone</h2>
-            <p className="muted">We pair you with the next player who is looking.</p>
-            <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void run({ t: 'quick', model })}>
+            <p className="muted">We pair you with the next player looking in this ₹{room.bet} room.</p>
+            <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void run({ t: 'quick' })}>
               Find an opponent
             </button>
           </section>
@@ -185,7 +198,7 @@ export function OnlineLobby({ model, joinCode, onStart, onBack }: Props) {
             <section className="lobby-panel">
               <h2>Invite a friend</h2>
               <p className="muted">Get a link to send them.</p>
-              <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run({ t: 'create', model })}>
+              <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run({ t: 'create' })}>
                 Create room
               </button>
             </section>

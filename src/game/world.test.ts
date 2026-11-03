@@ -65,6 +65,18 @@ describe('DeskWorld', () => {
     expect(shove('retro51', 'ballpoint')).toBeGreaterThan(shove('ballpoint', 'retro51') * 1.5);
   });
 
+  it('a hero power gives the same pen a little more push', () => {
+    const slide = (power: 'giant' | null) => {
+      const world = new DeskWorld(pair(createPen(0, 150, 250, Math.PI / 2, 'cello', power), far()));
+      world.flick(0, { along: 0, ix: 500, iy: 0 });
+      world.settle();
+      const x = world.read()[0].x;
+      world.free();
+      return x - 150;
+    };
+    expect(slide('giant')).toBeGreaterThan(slide(null) * 1.1);
+  });
+
   it('reports a pen-on-pen hit and a fall as impacts', () => {
     const world = new DeskWorld(
       pair(createPen(0, 560, 250, Math.PI / 2), createPen(1, 680, 250, Math.PI / 2)),

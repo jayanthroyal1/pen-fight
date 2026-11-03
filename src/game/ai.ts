@@ -2,6 +2,15 @@ import { HALF_SEG, MAX_IMPULSE, edgeDistance, pointOnPen } from './physics';
 import type { Flick, GameState, PlayerId } from './types';
 import { DeskWorld } from './world';
 
+export type Difficulty = 'easy' | 'medium' | 'hard';
+
+/** How the computer plays at each difficulty: how many shots it tries, how steady its aim is. */
+export const DIFFICULTY: Record<Difficulty, { label: string; samples: number; wobble: number }> = {
+  easy: { label: 'Easy', samples: 10, wobble: 0.3 },
+  medium: { label: 'Medium', samples: 35, wobble: 0.1 },
+  hard: { label: 'Hard', samples: 90, wobble: 0.02 },
+};
+
 export interface AiOptions {
   rng?: () => number;
   samples?: number;

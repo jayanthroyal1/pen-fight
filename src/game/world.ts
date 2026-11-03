@@ -1,5 +1,6 @@
 import type * as RapierNs from '@dimforge/rapier3d';
 import { impulseScaleOf, massOf } from './pens';
+import { POWER_BOOST } from './powers';
 import {
   DESK,
   FALL_DEPTH,
@@ -63,6 +64,7 @@ export class DeskWorld {
   private impacts: Impact[] = [];
   private out: [boolean, boolean] = [false, false];
   private models: Pen['model'][];
+  private powers: Pen['power'][];
   private quiet = 0;
   private steps = 0;
 
@@ -74,6 +76,7 @@ export class DeskWorld {
     this.world.timestep = DT;
     this.events = withEvents ? new r.EventQueue(true) : null;
     this.models = pens.map((p) => p.model);
+    this.powers = pens.map((p) => p.power);
 
     const desk = this.world.createRigidBody(
       r.RigidBodyDesc.fixed().setTranslation(DESK.width / 2 / S, -0.5, DESK.height / 2 / S),
@@ -137,7 +140,8 @@ export class DeskWorld {
       ix = (ix / mag) * MAX_IMPULSE;
       iy = (iy / mag) * MAX_IMPULSE;
     }
-    const k = impulseScaleOf(this.models[id]) / S;
+    // A hero power adds a small boost on top of the pen's own strength.
+    const k = (impulseScaleOf(this.models[id]) * (this.powers[id] ? POWER_BOOST : 1)) / S;
     const along = Math.min(HALF_SEG, Math.max(-HALF_SEG, flick.along));
     const d = axis(pen);
     const body = this.bodies[id];
@@ -221,6 +225,7 @@ export class DeskWorld {
       return {
         id: i as PlayerId,
         model: this.models[i],
+        power: this.powers[i],
         x: t.x * S,
         y: t.z * S,
         h: t.y * S,

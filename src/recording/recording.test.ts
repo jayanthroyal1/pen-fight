@@ -38,7 +38,7 @@ describe('MatchRecorder', () => {
   it('records the flick, sampled movement and outcome of a shot', async () => {
     const store = new MemoryMatchStore();
     const rec = new MatchRecorder(store, { mode: 'ai', players, me: 0 });
-    const state = newMatch(['retro51', 'ballpoint']);
+    const state = newMatch([{ model: 'retro51', power: null }, { model: 'ballpoint', power: null }]);
     rec.beginShot(state, { along: 10, ix: 500, iy: -20 });
     for (let i = 0; i < SAMPLE_EVERY * 4; i++) {
       rec.step(state.pens, i === 2 ? [{ kind: 'pens', strength: 0.5 }] : [], 1000 / 60);

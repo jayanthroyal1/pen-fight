@@ -1,0 +1,135 @@
+import { describe, expect, it } from 'vitest';
+import { PEN_MODELS, penModel } from '../game/pens';
+import { ROOMS, room } from '../game/rooms';
+import {
+  MAX_PENS,
+  StoreError,
+  applyLoss,
+  applyWin,
+  buyPen,
+  buyPower,
+  eligiblePens,
+  entryProblem,
+  newProfile,
+  ownPen,
+  pocketMoney,
+  type Profile,
+} from './economy';
+
+function seeded(seed: number) {
+  return () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+}
+
+describe('catalog', () => {
+  it('sells 20 pens across five levels, some pink or rose', () => {
+    expect(PEN_MODELS).toHaveLength(20);
+    for (const level of [1, 2, 3, 4, 5]) expect(PEN_MODELS.filter((m) => m.level === level)).toHaveLength(4);
+    expect(PEN_MODELS.filter((m) => /pink|rose|blossom|sakura|flamingo/i.test(m.name)).length).toBeGreaterThanOrEqual(4);
+    expect(Math.min(...PEN_MODELS.map((m) => m.price))).toBe(50);
+    expect(Math.max(...PEN_MODELS.map((m) => m.price))).toBe(1500);
+  });
+});
+
+describe('newProfile', () => {
+  it('starts with ₹100 and three different pens', () => {
+    const p = newProfile('Ravi', seeded(1));
+    expect(p.rupees).toBe(100);
+    expect(p.pens).toHaveLength(3);
+    expect(new Set(p.pens.map((x) => x.model)).size).toBe(3);
+    expect(p.pens.filter((x) => penModel(x.model).level === 2)).toHaveLength(1);
+  });
+
+  it('never deals a second player the same set of pens', () => {
+    const rng = seeded(9);
+    const first = newProfile('A', rng);
+    for (let i = 0; i < 30; i++) {
+      const other = newProfile('B', rng, [first.pens.map((x) => x.model)]);
+      expect(other.pens.map((x) => x.model).sort()).not.toEqual(first.pens.map((x) => x.model).sort());
+    }
+  });
+});
+
+describe('pocketMoney', () => {
+  const broke: Profile = { ...newProfile('A', seeded(2)), rupees: 10 };
+
+  it('tops a broke player up to ₹50 once a day', () => {
+    const first = pocketMoney(broke, '2026-11-03');
+    expect(first.profile.rupees).toBe(50);
+    expect(pocketMoney(first.profile, '2026-11-03').rupees).toBe(0);
+    expect(pocketMoney({ ...first.profile, rupees: 5 }, '2026-11-04').profile.rupees).toBe(50);
+  });
+
+  it('gives a player with no pens one starter pen', () => {
+    const r = pocketMoney({ ...broke, rupees: 80, pens: [] }, '2026-11-03', seeded(3));
+    expect(r.profile.pens).toHaveLength(1);
+    expect(penModel(r.profile.pens[0].model).level).toBe(1);
+    expect(r.profile.rupees).toBe(80);
+  });
+
+  it('gives nothing to a player who is fine', () => {
+    const fine = newProfile('A', seeded(4));
+    expect(pocketMoney(fine, '2026-11-03').profile).toBe(fine);
+  });
+});
+
+describe('rooms', () => {
+  it('lets pens in by level and checks the bet', () => {
+    const p: Profile = { ...newProfile('A', seeded(5)), rupees: 60 };
+    expect(entryProblem(p, room('public'))).toBeNull();
+    expect(entryProblem(p, room('private'))).toBeNull();
+    expect(entryProblem(p, room('cbse'))).toMatch(/₹75/);
+    expect(eligiblePens(p, room('private')).every((x) => penModel(x.model).level >= 2)).toBe(true);
+    expect(entryProblem({ ...p, rupees: 500 }, room('cbse'))).toMatch(/level 3\+/);
+    expect(ROOMS.map((r) => r.bet)).toEqual([25, 50, 75, 100]);
+  });
+});
+
+describe('store', () => {
+  it('buys a pen into a free slot', () => {
+    const p: Profile = { ...newProfile('A', seeded(6)), rupees: 200 };
+    const after = buyPen(p, 'reynolds');
+    expect(after.rupees).toBe(50);
+    expect(after.pens).toHaveLength(4);
+  });
+
+  it('refuses when broke or the pencil box is full', () => {
+    const p = newProfile('A', seeded(7));
+    expect(() => buyPen(p, 'royalgold')).toThrow(StoreError);
+    const full: Profile = { ...p, rupees: 9999, pens: Array.from({ length: MAX_PENS }, () => ownPen('ballpoint')) };
+    expect(() => buyPen(full, 'ballpoint')).toThrow(/full/);
+  });
+
+  it('applies a bought power to the chosen pen', () => {
+    const p: Profile = { ...newProfile('A', seeded(8)), rupees: 2000 };
+    const target = p.pens[1].uid;
+    const after = buyPower(p, 'hanuman', target);
+    expect(after.rupees).toBe(500);
+    expect(after.pens.find((x) => x.uid === target)?.power).toBe('hanuman');
+    expect(after.pens.filter((x) => x.power).length).toBe(1);
+  });
+});
+
+describe('settling a bet', () => {
+  const winner: Profile = { ...newProfile('W', seeded(10)), rupees: 100 };
+  const loser: Profile = { ...newProfile('L', seeded(11)), rupees: 100 };
+  const prize = { ...loser.pens[0], power: 'giant' as const };
+
+  it('moves the bet and the pen, power and all', () => {
+    const w = applyWin(winner, 25, prize, null);
+    const l = applyLoss(loser, 25, prize.uid, false);
+    expect(w.rupees).toBe(125);
+    expect(w.pens.at(-1)).toEqual(prize);
+    expect(l.rupees).toBe(75);
+    expect(l.pens.some((x) => x.uid === prize.uid)).toBe(false);
+  });
+
+  it('with a full box: swap, break or give back', () => {
+    const full: Profile = { ...winner, pens: Array.from({ length: MAX_PENS }, () => ownPen('ballpoint')) };
+    expect(() => applyWin(full, 25, prize, null)).toThrow();
+    const swapped = applyWin(full, 25, prize, { kind: 'swap', dropUid: full.pens[2].uid });
+    expect(swapped.pens).toHaveLength(MAX_PENS);
+    expect(swapped.pens.some((x) => x.uid === prize.uid)).toBe(true);
+    expect(applyWin(full, 25, prize, { kind: 'break' }).pens).toHaveLength(MAX_PENS);
+    expect(applyLoss(loser, 25, prize.uid, true).pens).toHaveLength(3);
+  });
+});

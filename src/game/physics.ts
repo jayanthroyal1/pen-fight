@@ -1,4 +1,5 @@
 import type { PenModelId } from './pens';
+import type { PowerId } from './powers';
 import type { Flick, Pen, PlayerId, Vec } from './types';
 
 // Desk-plane geometry shared by input, rendering and the Rapier world.
@@ -38,8 +39,9 @@ export function createPen(
   y: number,
   angle: number,
   model: PenModelId = 'cello',
+  power: PowerId | null = null,
 ): Pen {
-  return { id, model, x, y, angle, h: PEN_HALF_HEIGHT, q: flatRotation(angle), out: false };
+  return { id, model, power, x, y, angle, h: PEN_HALF_HEIGHT, q: flatRotation(angle), out: false };
 }
 
 export function axis(pen: Pen): Vec {

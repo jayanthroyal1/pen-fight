@@ -1,8 +1,15 @@
 import type { PenModelId } from './pens';
+import type { PowerId } from './powers';
 
 export type Vec = { x: number; y: number };
 
 export type PlayerId = 0 | 1;
+
+/** The pen a player brings to a match, and the hero power on it, if any. */
+export interface Loadout {
+  model: PenModelId;
+  power: PowerId | null;
+}
 
 /**
  * A pen as the game sees it, in desk pixels from above.
@@ -11,6 +18,7 @@ export type PlayerId = 0 | 1;
 export interface Pen {
   id: PlayerId;
   model: PenModelId;
+  power: PowerId | null;
   x: number;
   y: number;
   /** Heading of the pen's tip, in radians, in the desk plane. */
@@ -35,16 +43,21 @@ export interface Flick {
 
 export type Phase = 'aim' | 'moving' | 'roundOver' | 'matchOver';
 
-export type RoundReason = 'knocked' | 'fell';
+/** How a round ended: a pen knocked off, the shooter sliding off, or both pens falling. */
+export type RoundReason = 'knocked' | 'fell' | 'draw';
 
 export interface GameState {
-  /** The pen each player chose for this match. */
-  models: [PenModelId, PenModelId];
+  /** What each player brought to this match. */
+  loadouts: [Loadout, Loadout];
   pens: [Pen, Pen];
   turn: PlayerId;
+  /** Who shot first this round. */
+  starter: PlayerId;
+  /** Round wins; first to `WIN_SCORE` takes the match. */
   scores: [number, number];
   round: number;
   phase: Phase;
+  /** Winner of the round just finished; null for a draw. */
   roundWinner: PlayerId | null;
   roundReason: RoundReason | null;
 }
