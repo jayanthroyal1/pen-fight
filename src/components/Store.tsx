@@ -42,6 +42,71 @@ export function Store({ profile, onSave, onBack }: Props) {
   const [power, setPower] = useState<PowerId | null>(null);
   const [target, setTarget] = useState<string | null>(null);
 
+  // Inline styles to prevent overlapping shop items
+  const itemStyle: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: '56px minmax(0, 1fr) auto',
+    gridTemplateRows: 'auto auto',
+    gridTemplateAreas: '"icon content price" "icon content action"',
+    alignItems: 'center',
+    columnGap: '12px',
+    rowGap: '8px',
+    width: '100%',
+    minWidth: 0,
+    minHeight: '100px',
+    height: 'auto',
+    padding: '12px',
+    margin: '0',
+    boxSizing: 'border-box',
+    position: 'relative',
+  };
+
+  const textStyle: React.CSSProperties = {
+    gridArea: 'content',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    minWidth: 0,
+    width: '100%',
+    height: 'auto',
+    position: 'static',
+    overflowWrap: 'anywhere',
+    wordBreak: 'normal',
+    whiteSpace: 'normal',
+    lineHeight: 1.4,
+  };
+
+  const priceStyle: React.CSSProperties = {
+    gridArea: 'price',
+    alignSelf: 'center',
+    justifySelf: 'end',
+    position: 'static',
+    whiteSpace: 'nowrap',
+    margin: 0,
+  };
+
+  const buttonStyle: React.CSSProperties = {
+    gridArea: 'action',
+    alignSelf: 'center',
+    justifySelf: 'end',
+    position: 'static',
+    minWidth: '75px',
+    width: 'auto',
+    maxWidth: '100%',
+    margin: 0,
+    whiteSpace: 'nowrap',
+  };
+
+  const iconStyle: React.CSSProperties = {
+    gridArea: 'icon',
+    alignSelf: 'center',
+    justifySelf: 'center',
+    flexShrink: 0,
+  };
+
+  const full = !hasRoom(profile);
+  const limit = boxLimit(profile);
+
   const attempt = (fn: () => Profile, done: string) => {
     try {
       onSave(fn());
@@ -53,9 +118,6 @@ export function Store({ profile, onSave, onBack }: Props) {
       });
     }
   };
-
-  const full = !hasRoom(profile);
-  const limit = boxLimit(profile);
 
   return (
     <main className="cover shop">
@@ -97,6 +159,7 @@ export function Store({ profile, onSave, onBack }: Props) {
         </p>
       )}
 
+      {/* PENS TAB */}
       {tab === 'pens' && (
         <div className="shelves">
           <p id="store-limit" className="muted">
@@ -108,6 +171,7 @@ export function Store({ profile, onSave, onBack }: Props) {
           {([1, 2, 3, 4, 5] as PenLevel[]).map((level) => (
             <section key={level} className="shelf">
               <h2>Level {level}</h2>
+
               <ul className="shelf-items">
                 {PEN_MODELS.filter((m) => m.level === level).map((m) => {
                   const afford = profile.rupees >= m.price;
@@ -117,6 +181,7 @@ export function Store({ profile, onSave, onBack }: Props) {
                       <PenSwatch model={m.id} />
                       <PenLabel pen={{ model: m.id, power: null }} />
                       <span className="price-tag">₹{m.price}</span>
+
                       <button
                         type="button"
                         className="btn btn-secondary btn-small"
@@ -139,6 +204,7 @@ export function Store({ profile, onSave, onBack }: Props) {
         </div>
       )}
 
+      {/* SUPER POWERS TAB */}
       {tab === 'boosts' && (
         <div className="shelves">
           <p className="muted">
@@ -153,7 +219,19 @@ export function Store({ profile, onSave, onBack }: Props) {
             <section key={timing} className="shelf">
               <h2>{TIMING[timing]}</h2>
 
-              <ul className="shelf-items powers">
+              <ul
+                className="shelf-items powers"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px',
+                  padding: '12px',
+                  margin: 0,
+                  listStyle: 'none',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                }}
+              >
                 {BOOSTS.filter((b) => b.timing === timing).map((b) => {
                   const have = boostCount(profile, b.id);
 
@@ -161,23 +239,46 @@ export function Store({ profile, onSave, onBack }: Props) {
                     <li
                       key={b.id}
                       className="shop-item power-item boost-item"
-                      style={{ '--boost': b.color } as React.CSSProperties}
+                      style={{
+                        ...itemStyle,
+                        '--boost': b.color,
+                      } as React.CSSProperties}
                     >
-                      <span className="boost-chip" aria-hidden>
+                      <span className="boost-chip" aria-hidden style={iconStyle}>
                         <BoostIcon id={b.id} />
                       </span>
 
-                      <span className="pen-text">
-                        <span className="pen-name">{b.name}</span>
-                        <span className="pen-meta">{b.tagline}</span>
-                        <span className="pen-meta">You have {have}</span>
+                      <span className="pen-text" style={textStyle}>
+                        <span
+                          className="pen-name"
+                          style={{ display: 'block', position: 'static', lineHeight: 1.3 }}
+                        >
+                          {b.name}
+                        </span>
+
+                        <span
+                          className="pen-meta"
+                          style={{ display: 'block', position: 'static', whiteSpace: 'normal' }}
+                        >
+                          {b.tagline}
+                        </span>
+
+                        <span
+                          className="pen-meta"
+                          style={{ display: 'block', position: 'static' }}
+                        >
+                          You have {have}
+                        </span>
                       </span>
 
-                      <span className="price-tag">₹{b.price}</span>
+                      <span className="price-tag" style={priceStyle}>
+                        ₹{b.price}
+                      </span>
 
                       <button
                         type="button"
                         className="btn btn-secondary btn-small"
+                        style={buttonStyle}
                         onClick={() =>
                           attempt(
                             () => buyBoost(profile, b.id),
@@ -196,6 +297,7 @@ export function Store({ profile, onSave, onBack }: Props) {
         </div>
       )}
 
+      {/* HERO POWERS TAB */}
       {tab === 'powers' && (
         <div className="shelves">
           <p className="muted">
@@ -204,30 +306,61 @@ export function Store({ profile, onSave, onBack }: Props) {
             that pen, the power goes with it.
           </p>
 
-          <ul className="shelf-items powers">
+          <ul
+            className="shelf-items powers"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              padding: '12px',
+              margin: 0,
+              listStyle: 'none',
+              width: '100%',
+              boxSizing: 'border-box',
+            }}
+          >
             {POWERS.map((p) => (
               <li
                 key={p.id}
                 className={`shop-item power-item${power === p.id ? ' is-selected' : ''}`}
+                style={itemStyle}
               >
                 <span
                   className="power-chip"
-                  style={{ background: p.color, color: p.accent }}
+                  style={{
+                    ...iconStyle,
+                    background: p.color,
+                    color: p.accent,
+                  }}
                   aria-hidden
                 >
                   {p.shout.replace('!', '')}
                 </span>
 
-                <span className="pen-text">
-                  <span className="pen-name">{p.name}</span>
-                  <span className="pen-meta">{p.tagline}</span>
+                <span className="pen-text" style={textStyle}>
+                  <span
+                    className="pen-name"
+                    style={{ display: 'block', position: 'static', lineHeight: 1.3 }}
+                  >
+                    {p.name}
+                  </span>
+
+                  <span
+                    className="pen-meta"
+                    style={{ display: 'block', position: 'static', whiteSpace: 'normal' }}
+                  >
+                    {p.tagline}
+                  </span>
                 </span>
 
-                <span className="price-tag">₹{p.price}</span>
+                <span className="price-tag" style={priceStyle}>
+                  ₹{p.price}
+                </span>
 
                 <button
                   type="button"
                   className="btn btn-secondary btn-small"
+                  style={buttonStyle}
                   aria-pressed={power === p.id}
                   onClick={() => {
                     if (profile.rupees < p.price) {
