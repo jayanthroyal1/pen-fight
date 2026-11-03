@@ -10,14 +10,15 @@ import { Settings } from './components/Settings';
 import { Splash } from './components/Splash';
 import { Store } from './components/Store';
 import type { Difficulty } from './game/ai';
+import { PRACTICE_BAG } from './game/boosts';
 import { PEN_MODELS } from './game/pens';
 import { PRACTICE_ROOM, room as roomById, type Room } from './game/rooms';
 import { other } from './game/rules';
 import type { Loadout, PlayerId } from './game/types';
-import type { OnlineClient } from './net/client';
+import type { GameLink } from './net/link';
 import { takeInvite, type Invite } from './net/invite';
 import type { Seat } from './net/protocol';
-import { applyLoss, applyWin, entryProblem, hasRoom, ownPen, type OwnedPen, type PrizeChoice, type Profile } from './profile/economy';
+import { applyLoss, applyWin, entryProblem, hasRoom, ownPen, spendBoost, type OwnedPen, type PrizeChoice, type Profile } from './profile/economy';
 import { checkTester, testerEnabled } from './profile/tester';
 import { useProfiles } from './profile/useProfiles';
 
@@ -32,7 +33,7 @@ type Screen =
   /** Choosing pens: practice, online (one player), or same phone (each player in turn). */
   | { kind: 'pick'; mode: 'ai' | 'online' | 'local'; room: Room | null; opponentId?: string; first?: OwnedPen; joinCode?: string }
   | { kind: 'lobby'; room: Room; pen: OwnedPen; joinCode?: string }
-  | { kind: 'game'; setup: MatchSetup; online?: { client: OnlineClient; me: PlayerId }; who: [string | null, string | null]; pens: [OwnedPen | null, OwnedPen | null] };
+  | { kind: 'game'; setup: MatchSetup; online?: { client: GameLink; me: PlayerId }; who: [string | null, string | null]; pens: [OwnedPen | null, OwnedPen | null] };
 
 /** Read once at load: React may run state initialisers twice, and this clears the address bar. */
 const openingInvite = takeInvite();
@@ -137,7 +138,7 @@ export function App({ physics }: { physics: Promise<void> }) {
     if (loserProfile && pens[loser]) void profiles.save(applyLoss(loserProfile, bet, pens[loser]!.uid, returned));
   };
 
-  const startGame = (setup: MatchSetup, who: [string | null, string | null], pens: [OwnedPen | null, OwnedPen | null], online?: { client: OnlineClient; me: PlayerId }) =>
+  const startGame = (setup: MatchSetup, who: [string | null, string | null], pens: [OwnedPen | null, OwnedPen | null], online?: { client: GameLink; me: PlayerId }) =>
     setScreen({ kind: 'game', setup, who, pens, online });
 
   const content = (() => {
@@ -241,6 +242,7 @@ export function App({ physics }: { physics: Promise<void> }) {
                     loadouts: [loadout(pen), computerPen()],
                     boxes: [me.pens, null],
                     boxRoom: [hasRoom(me), true],
+                    bags: [PRACTICE_BAG, PRACTICE_BAG],
                     difficulty,
                   },
                   [me.id, null],
@@ -262,6 +264,7 @@ export function App({ physics }: { physics: Promise<void> }) {
                     loadouts: [loadout(screen.first), loadout(pen)],
                     boxes: [me.pens, opponent.pens],
                     boxRoom: [hasRoom(me), hasRoom(opponent)],
+                    bags: [me.boosts ?? {}, opponent.boosts ?? {}],
                     difficulty,
                   },
                   [me.id, opponent.id],
@@ -291,6 +294,7 @@ export function App({ physics }: { physics: Promise<void> }) {
                   loadouts: [players[0].loadout, players[1].loadout],
                   boxes: you === 0 ? [me.pens, null] : [null, me.pens],
                   boxRoom: [you === 0 ? hasRoom(me) : true, you === 1 ? hasRoom(me) : true],
+                  bags: you === 0 ? [me.boosts ?? {}, null] : [null, me.boosts ?? {}],
                   difficulty: 'medium',
                 },
                 you === 0 ? [me.id, null] : [null, me.id],
@@ -309,6 +313,10 @@ export function App({ physics }: { physics: Promise<void> }) {
             setup={s.setup}
             online={s.online}
             onSettle={(winner, choice) => settle(s, winner, choice)}
+            onSpendBoost={(player, id) => {
+              const owner = byId(s.who[player]);
+              if (owner && s.setup.staked) void profiles.save(spendBoost(owner, id));
+            }}
             onExit={() => {
               s.online?.client.close();
               home();

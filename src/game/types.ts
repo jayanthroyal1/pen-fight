@@ -1,3 +1,4 @@
+import type { BoostId } from './boosts';
 import type { PenModelId } from './pens';
 import type { PowerId } from './powers';
 
@@ -46,6 +47,13 @@ export type Phase = 'aim' | 'moving' | 'roundOver' | 'matchOver';
 /** How a round ended: a pen knocked off, the shooter sliding off, or both pens falling. */
 export type RoundReason = 'knocked' | 'fell' | 'draw';
 
+/** A super power waiting for a shot: armed by `by`, changing `target`'s next shot. */
+export interface ArmedBoost {
+  id: BoostId;
+  by: PlayerId;
+  target: PlayerId;
+}
+
 export interface GameState {
   /** What each player brought to this match. */
   loadouts: [Loadout, Loadout];
@@ -60,4 +68,12 @@ export interface GameState {
   /** Winner of the round just finished; null for a draw. */
   roundWinner: PlayerId | null;
   roundReason: RoundReason | null;
+  /** Super powers waiting for a shot. */
+  armed: ArmedBoost[];
+  /** Spare lives from Health Boost, this round only. */
+  lives: [number, number];
+  /** The super power the player on turn has armed; one per turn. */
+  boostThisTurn: BoostId | null;
+  /** Pens a Health Boost put back on the desk in the shot just resolved. */
+  saved: PlayerId[];
 }

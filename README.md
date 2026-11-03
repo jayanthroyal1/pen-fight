@@ -10,14 +10,14 @@ in a classroom you can almost hear.
   start with the same set). A pencil box holds 5 pens. Broke players get ₹50 pocket money once a day,
   and a free pen if they have none.
 - **Bet rooms.** Each match is best of three for a bet; the winner takes both bets and the loser's pen,
-  hero power and all. Each room is a different school with its own look and chatter:
+  hero power and all. Each room is a different school with its own look:
 
-  | Bet | Room | Pens allowed | Chatter |
-  | --- | --- | --- | --- |
-  | ₹25 | Government School | Level 1+ | Loud Telugu, ceiling fans |
-  | ₹50 | Private School | Level 2+ | Telugu and English |
-  | ₹75 | CBSE School | Level 3+ | English |
-  | ₹100 | International School | Level 4+ | Quiet English, air-conditioning |
+  | Bet | Room | Pens allowed |
+  | --- | --- | --- |
+  | ₹25 | Government School | Level 1+ |
+  | ₹50 | Private School | Level 2+ |
+  | ₹75 | CBSE School | Level 3+ |
+  | ₹100 | International School | Level 4+ |
 
 - **Winning a full pencil box.** The winner chooses: swap the prize for one of their pens, break it
   (with the winner's hero finisher), or give it back.
@@ -26,6 +26,21 @@ in a classroom you can almost hear.
   finisher for breaking pens, and +10% power. The heroes are original look-alikes (Green Giant, Web
   Flicker, Steel Comet, Night Wing, Amazon Lasso, Chakra Spin) plus Hanuman Gada, which turns the pen
   into a golden mace.
+- **Super powers.** One-use powers from the store, ₹25 to ₹100. On your turn, tap one before you flick
+  (one a turn; tap again to take it back):
+
+  | Power | Price | What it does |
+  | --- | --- | --- |
+  | Lightning Bolt | ₹25 | When your pen touches theirs, lightning strikes it away |
+  | Health Boost | ₹30 | If your pen falls off this round, it comes back once |
+  | Super Grip | ₹35 | Your pen grips the desk and turns heavy for their next shot |
+  | Ice Desk | ₹45 | The desk freezes for their next shot, so everything slides |
+  | Power Strike | ₹50 | Your next flick hits half as hard again |
+  | Uneven Desk | ₹60 | The desk tips down towards their end for their next shot |
+  | Force Wall | ₹75 | Glowing walls round your half of the desk for their next shot |
+  | Double Turn | ₹100 | Shoot again straight after this shot |
+
+  Practice games let you try each one once a match for free, and the computer uses a few too.
 - **Ways to play.** Online for rupees (quick match, invite link or room code), two players on one
   phone (each with their own profile and bets), or practice against the computer at Easy, Medium or
   Hard (no money or pens change hands).
@@ -58,10 +73,9 @@ is the final round. The round's loser shoots first in the next.
 
 ## Classroom chatter
 
-The chatter is synthesised (pitched voices through moving vowel formants, fast and syllable-timed for
-Telugu, stress-timed for English). To use real recordings instead, put a looping clip for each room in
-`public/audio/`: `class-public.mp3`, `class-private.mp3`, `class-cbse.mp3`, `class-international.mp3`.
-They're picked up automatically.
+The classroom noise is the recording in `public/audio/class.mp3`, looped in every room. To give a room
+its own sound, add `class-public.mp3`, `class-private.mp3`, `class-cbse.mp3` or
+`class-international.mp3` there; it's picked up automatically.
 
 ## Code map
 
@@ -70,13 +84,13 @@ They're picked up automatically.
 | `src/game/world.ts` | Rapier world: desk slab, pen bodies, flicks, impacts, when a shot is over |
 | `src/game/physics.ts` | Desk geometry shared by input and drawing |
 | `src/game/aiming.ts` | Turning a pull on screen into a flick, and easing the shown aim |
-| `src/game/pens.ts`, `powers.ts`, `rooms.ts` | The pen catalog, hero powers and bet rooms |
+| `src/game/pens.ts`, `powers.ts`, `boosts.ts`, `rooms.ts` | The pen catalog, hero powers, super powers and bet rooms |
 | `src/game/rules.ts` | Turns, best of three, draws |
 | `src/game/ai.ts` | Computer player and its difficulty levels |
 | `src/game/scene3d.ts` | The 3D view: camera, aim, finger, entrances, strikes, breaking a pen |
-| `src/game/penMesh.ts`, `classroom.ts`, `fx.ts` | Pen models, classroom rooms and chalk score, effects |
+| `src/game/penMesh.ts`, `classroom.ts`, `fx.ts`, `boostFx.ts` | Pen models, classroom rooms and chalk score, effects, super power effects |
 | `src/profile/` | Players, wallet and pencil box rules, and where profiles are stored |
-| `src/audio/` | Synthesised sounds, applause and classroom chatter |
+| `src/audio/` | Synthesised sounds, applause and the classroom recording |
 | `src/recording/` | Match recorder and stores |
 | `src/net/`, `server/` | Online play: a relay that pairs players in a bet room |
 
@@ -89,10 +103,16 @@ Under **Play online**, pick a bet room and a pen, then:
   your friend to the pen picker and then straight into your room.
 - **Got a code?**: type the 4-letter room code instead of using the link.
 
-Both players must reach the same relay, so for play across devices deploy `server/` to a public Node
-host and build the game with `VITE_SERVER_URL` pointing at it.
+Online play needs a way for the two browsers to talk. Either:
 
-The relay only pairs players and forwards messages. Both browsers simulate each shot; the shooter's
+- **Supabase Realtime** (recommended, no server of our own): set `VITE_SUPABASE_URL` and
+  `VITE_SUPABASE_ANON_KEY` (Project Settings → API; the publishable/anon key, never the secret key) in
+  `.env` and in your host, e.g. Vercel. Rooms are Realtime channels: presence says who's in a room and
+  broadcasts carry the moves. No database tables are needed. See `src/net/realtimeLink.ts`.
+- **The relay** in `server/`: deploy it to a Node host that keeps connections open and set
+  `VITE_SERVER_URL`. It's used whenever the Supabase values aren't set.
+
+Either way, only pairing and forwarding happen in the middle. Both browsers simulate each shot; the shooter's
 browser decides how it ended and sends the settled state, which the other adopts. At the end the
 winner's choice about the loser's pen is relayed, and each browser updates its own player's wallet.
 

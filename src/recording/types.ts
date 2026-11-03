@@ -20,7 +20,7 @@ export interface MovementFrame {
 
 export interface ImpactRecord {
   t: number;
-  kind: 'pens' | 'desk' | 'fall';
+  kind: 'pens' | 'desk' | 'fall' | 'zap' | 'wall';
   strength?: number;
   pen?: PlayerId;
 }

@@ -9,6 +9,8 @@ import {
   StoreError,
   applyLoss,
   applyWin,
+  boostCount,
+  buyBoost,
   buyPen,
   buyPower,
   eligiblePens,
@@ -17,6 +19,7 @@ import {
   newTesterProfile,
   ownPen,
   pocketMoney,
+  spendBoost,
   testerTopUp,
   type Profile,
 } from './economy';
@@ -161,5 +164,25 @@ describe('pens from earlier versions', () => {
     expect(currentPenId('retro51')).toBe('exec-gold-clip');
     expect(currentPenId('click-sky')).toBe('click-sky');
     expect(currentPenId('laser-pen')).toBe('inkmax-aqua');
+  });
+});
+
+describe('super powers in the store', () => {
+  it('buys, counts and uses up super powers', () => {
+    let p = { ...newProfile('Ravi', seeded(5)), rupees: 100 };
+    p = buyBoost(p, 'lightning');
+    p = buyBoost(p, 'lightning');
+    expect(p.rupees).toBe(50);
+    expect(boostCount(p, 'lightning')).toBe(2);
+    expect(() => buyBoost(p, 'wall')).toThrow(/costs ₹75/);
+    p = spendBoost(p, 'lightning');
+    expect(boostCount(p, 'lightning')).toBe(1);
+    expect(spendBoost(spendBoost(p, 'lightning'), 'lightning').boosts?.lightning).toBe(0);
+  });
+
+  it('caps how many of one a player can hold', () => {
+    let p = { ...newProfile('Ravi', seeded(5)), rupees: 10_000 };
+    for (let i = 0; i < 9; i++) p = buyBoost(p, 'ice');
+    expect(() => buyBoost(p, 'ice')).toThrow(/already hold 9/);
   });
 });

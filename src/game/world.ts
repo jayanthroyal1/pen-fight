@@ -1,6 +1,7 @@
 import type * as RapierNs from '@dimforge/rapier3d';
 import { impulseScaleOf, massOf } from './pens';
 import { POWER_BOOST } from './powers';
+import { PLAIN_SHOT, type ShotMods } from './rules';
 import {
   DESK,
   FALL_DEPTH,
@@ -44,9 +45,25 @@ const MAX_SHOT_STEPS = 15 / DT;
 /** Contact force below this is a pen just lying or sliding on the desk. */
 const DESK_TAP_FORCE = 150;
 
+/** Desk friction once it's iced over. */
+const ICE_FRICTION = 0.03;
+/** Super Grip: how much heavier and stickier the pen turns. */
+const GRIP_MASS = 2.5;
+const GRIP_LINEAR_DAMPING = 5;
+const GRIP_ANGULAR_DAMPING = 9;
+/** Speed (units/s) a lightning strike adds to the pen it hits. */
+const ZAP_SPEED = 4.2;
+const ZAP_LIFT = 1.4;
+/** Force Wall height and thickness, in desk pixels. */
+const WALL_H = 34;
+const WALL_T = 6;
+
 /** Something that should make a sound; strength is 0..1. */
 export type Impact =
   | { kind: 'pens'; strength: number }
+  /** Lightning struck `pen`. */
+  | { kind: 'zap'; pen: PlayerId }
+  | { kind: 'wall'; strength: number }
   | { kind: 'desk'; strength: number; pen: PlayerId }
   | { kind: 'fall'; pen: PlayerId };
 
@@ -65,6 +82,11 @@ export class DeskWorld {
   private out: [boolean, boolean] = [false, false];
   private models: Pen['model'][];
   private powers: Pen['power'][];
+  private desk: RapierNs.Collider;
+  private walls: RapierNs.Collider[] = [];
+  private mods: ShotMods = PLAIN_SHOT;
+  private shooter: PlayerId = 0;
+  private zapped = false;
   private quiet = 0;
   private steps = 0;
 
@@ -81,7 +103,7 @@ export class DeskWorld {
     const desk = this.world.createRigidBody(
       r.RigidBodyDesc.fixed().setTranslation(DESK.width / 2 / S, -0.5, DESK.height / 2 / S),
     );
-    this.world.createCollider(
+    this.desk = this.world.createCollider(
       r.ColliderDesc.cuboid(DESK.width / 2 / S, 0.5, DESK.height / 2 / S).setFriction(FRICTION),
       desk,
     );
@@ -128,8 +150,53 @@ export class DeskWorld {
       this.out[i] = pen.out;
     });
     this.impacts = [];
+    this.zapped = false;
     this.quiet = 0;
     this.steps = 0;
+  }
+
+  /**
+   * Sets up the desk for a shot by `shooter` with super powers in play: ice,
+   * a tilted desk, walls, a gripping pen, a harder flick, lightning.
+   */
+  setMods(mods: ShotMods, shooter: PlayerId): void {
+    const r = R!;
+    this.mods = mods;
+    this.shooter = shooter;
+    this.zapped = false;
+    this.desk.setFriction(mods.ice ? ICE_FRICTION : FRICTION);
+    this.desk.setFrictionCombineRule(mods.ice ? r.CoefficientCombineRule.Min : r.CoefficientCombineRule.Average);
+    // An uneven desk is the same as gravity leaning sideways on a flat one.
+    const t = mods.tilt;
+    this.world.gravity = { x: GRAVITY * t, y: -GRAVITY * Math.sqrt(1 - t * t), z: 0 };
+
+    for (const w of this.walls) this.world.removeCollider(w, false);
+    this.walls = [];
+    if (mods.wall !== null) {
+      const end = mods.wall === 0 ? 1 : -1;
+      const halfX = DESK.width / 4;
+      const cx = DESK.width / 2 + end * halfX;
+      const y = WALL_H / 2;
+      const make = (x: number, z: number, hx: number, hz: number) => {
+        let desc = r.ColliderDesc.cuboid(hx / S, y / S, hz / S)
+          .setTranslation(x / S, y / S, z / S)
+          .setFriction(0.2)
+          .setRestitution(0.55);
+        if (this.events) desc = desc.setActiveEvents(r.ActiveEvents.COLLISION_EVENTS);
+        this.walls.push(this.world.createCollider(desc));
+      };
+      // The end of the desk behind the pen, and both long sides of that half.
+      make(end > 0 ? DESK.width + WALL_T / 2 : -WALL_T / 2, DESK.height / 2, WALL_T / 2, DESK.height / 2 + WALL_T);
+      make(cx, -WALL_T / 2, halfX, WALL_T / 2);
+      make(cx, DESK.height + WALL_T / 2, halfX, WALL_T / 2);
+    }
+
+    this.bodies.forEach((b, i) => {
+      const grip = mods.grip === i;
+      b.setLinearDamping(grip ? GRIP_LINEAR_DAMPING : LINEAR_DAMPING);
+      b.setAngularDamping(grip ? GRIP_ANGULAR_DAMPING : ANGULAR_DAMPING);
+      b.setAdditionalMass(grip ? massOf(this.models[i]) * GRIP_MASS : 0, false);
+    });
   }
 
   flick(id: PlayerId, flick: Flick): void {
@@ -141,7 +208,7 @@ export class DeskWorld {
       iy = (iy / mag) * MAX_IMPULSE;
     }
     // A hero power adds a small boost on top of the pen's own strength.
-    const k = (impulseScaleOf(this.models[id]) * (this.powers[id] ? POWER_BOOST : 1)) / S;
+    const k = (impulseScaleOf(this.models[id]) * (this.powers[id] ? POWER_BOOST : 1) * this.mods.strike) / S;
     const along = Math.min(HALF_SEG, Math.max(-HALF_SEG, flick.along));
     const d = axis(pen);
     const body = this.bodies[id];
@@ -163,6 +230,7 @@ export class DeskWorld {
       this.world.step();
     }
     this.steps++;
+    if (this.mods.lightning && !this.zapped) this.zapOnContact();
 
     let still = true;
     this.bodies.forEach((body, i) => {
@@ -241,6 +309,25 @@ export class DeskWorld {
     this.world.free();
   }
 
+  /** Lightning: the first time the shooter's pen touches the other, the other is struck away. */
+  private zapOnContact(): void {
+    let touching = false;
+    this.world.contactPair(this.colliders[0], this.colliders[1], (m) => {
+      for (let i = 0; i < m.numContacts(); i++) if (m.contactDist(i) < 0.01) touching = true;
+    });
+    if (!touching) return;
+    this.zapped = true;
+    const victim = this.shooter === 0 ? 1 : 0;
+    const a = this.bodies[this.shooter].translation();
+    const body = this.bodies[victim];
+    const b = body.translation();
+    const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+    const m = body.mass();
+    body.applyImpulse({ x: ((b.x - a.x) / len) * ZAP_SPEED * m, y: ZAP_LIFT * m, z: ((b.z - a.z) / len) * ZAP_SPEED * m }, true);
+    body.applyTorqueImpulse({ x: 0, y: (Math.random() - 0.5) * 0.08 * m, z: 0 }, true);
+    if (this.events) this.impacts.push({ kind: 'zap', pen: victim as PlayerId });
+  }
+
   private penIndex(handle: number): number {
     return this.colliders.findIndex((c) => c.handle === handle);
   }
@@ -248,6 +335,14 @@ export class DeskWorld {
   private collectImpacts(queue: RapierNs.EventQueue): void {
     queue.drainCollisionEvents((h1, h2, started) => {
       if (!started) return;
+      const wall = this.walls.some((w) => w.handle === h1 || w.handle === h2);
+      if (wall) {
+        const pen = this.penIndex(h1) >= 0 ? this.penIndex(h1) : this.penIndex(h2);
+        if (pen < 0) return;
+        const v = this.bodies[pen].linvel();
+        this.impacts.push({ kind: 'wall', strength: clamp01(Math.hypot(v.x, v.z) / 6) });
+        return;
+      }
       if (this.penIndex(h1) < 0 || this.penIndex(h2) < 0) return;
       const a = this.bodies[0].linvel();
       const b = this.bodies[1].linvel();
@@ -259,6 +354,8 @@ export class DeskWorld {
       const i2 = this.penIndex(e.collider2());
       // Pen-on-pen contact is already voiced by the collision start above.
       if (i1 >= 0 && i2 >= 0) return;
+      // Bumps into a Force Wall have their own sound.
+      if (this.walls.some((w) => w.handle === e.collider1() || w.handle === e.collider2())) return;
       const pen = (i1 >= 0 ? i1 : i2) as PlayerId;
       const strength = clamp01(e.totalForceMagnitude() / (massOf(this.models[pen]) * 1500));
       this.impacts.push({ kind: 'desk', strength, pen });

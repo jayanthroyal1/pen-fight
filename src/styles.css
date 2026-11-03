@@ -1935,3 +1935,140 @@ div.room-card.is-locked {
 .replay-text strong {
   color: var(--natraj);
 }
+
+/* Super powers: the bar of armed-before-you-flick boosts along the bottom of the desk. */
+.power-bar {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-2);
+  width: max-content;
+  max-width: calc(100% - 2 * var(--space-3));
+  padding: var(--space-2);
+  background: rgba(20, 14, 10, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  transform: translateX(-50%);
+}
+
+.power-btn {
+  --boost: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-1) var(--space-2);
+  color: var(--label);
+  font: inherit;
+  font-size: 0.95rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.2)), #2b2119;
+  border: 1px solid color-mix(in srgb, var(--boost) 45%, transparent);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.power-btn .boost-icon {
+  color: var(--boost);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--boost) 60%, transparent));
+}
+
+.power-btn:hover {
+  border-color: var(--boost);
+}
+
+.power-btn:focus-visible {
+  outline: 2px solid var(--boost);
+  outline-offset: 2px;
+}
+
+.power-btn.is-armed {
+  border-color: var(--boost);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--boost) 55%, transparent), 0 0 18px color-mix(in srgb, var(--boost) 70%, transparent);
+  transform: translateY(-2px);
+}
+
+.power-count {
+  min-width: 2ch;
+  color: var(--muted);
+  font-family: var(--font-type);
+  font-size: 0.85rem;
+}
+
+.power-btn.is-armed .power-count {
+  color: var(--boost);
+}
+
+.power-empty,
+.power-msg {
+  padding: 0 var(--space-2);
+  color: var(--cream);
+  font-size: 0.95rem;
+}
+
+.power-msg {
+  flex-basis: 100%;
+  text-align: center;
+  color: #ffd0a8;
+}
+
+.boost-note {
+  color: #9fd8ff;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .power-btn {
+    transition: none;
+  }
+}
+
+.boost-chip {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  color: var(--boost);
+  background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--boost) 30%, #1d1712), #1d1712 70%);
+  border: 1px solid color-mix(in srgb, var(--boost) 55%, transparent);
+  border-radius: 10px;
+}
+
+.boost-chip .boost-icon {
+  width: 24px;
+  height: 24px;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--boost) 70%, transparent));
+}
+
+@media (max-width: 640px) {
+  /* On a phone the bar sits under the desk, not over it. */
+  .power-bar {
+    position: static;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    width: auto;
+    max-width: none;
+    margin-top: var(--space-2);
+    overflow-x: auto;
+    transform: none;
+  }
+
+  .power-btn {
+    flex: none;
+    gap: var(--space-1);
+  }
+
+  .power-btn .power-name {
+    display: none;
+  }
+
+  .power-msg {
+    flex: none;
+    flex-basis: auto;
+  }
+}

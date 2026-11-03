@@ -3,7 +3,7 @@ import { penModel } from '../game/pens';
 import { power as powerOf } from '../game/powers';
 import { room as roomById, type Room } from '../game/rooms';
 import type { PlayerId } from '../game/types';
-import { OnlineClient } from '../net/client';
+import { connectGame, type GameLink } from '../net/link';
 import { inviteLink } from '../net/invite';
 import { readInvite, shareTargets } from '../net/share';
 import type { ClientMsg, Seat } from '../net/protocol';
@@ -16,7 +16,7 @@ interface Props {
   seat: Seat;
   /** Room code to join straight away, from an invite link. */
   joinCode?: string;
-  onStart: (client: OnlineClient, me: PlayerId, players: [Seat, Seat]) => void;
+  onStart: (client: GameLink, me: PlayerId, players: [Seat, Seat]) => void;
   onBack: () => void;
 }
 
@@ -33,12 +33,12 @@ export function OnlineLobby({ room, seat, joinCode, onStart, onBack }: Props) {
   const [code, setCode] = useState(joinCode ?? '');
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<'link' | 'code' | null>(null);
-  const clientRef = useRef<OnlineClient | null>(null);
+  const clientRef = useRef<GameLink | null>(null);
   const startedRef = useRef(false);
 
-  const connect = (): OnlineClient => {
+  const connect = async (): Promise<GameLink> => {
     clientRef.current?.close();
-    const client = new OnlineClient();
+    const client = await connectGame();
     clientRef.current = client;
     client.subscribe((msg) => {
       if (msg.t === 'created') setLobby({ kind: 'waiting', code: msg.code });
@@ -64,7 +64,7 @@ export function OnlineLobby({ room, seat, joinCode, onStart, onBack }: Props) {
     setCopied(null);
     setLobby({ kind: 'connecting', doing: msg.t });
     try {
-      await connect().send(msg);
+      await (await connect()).send(msg);
     } catch {
       setError("Couldn't reach the game server. Check your connection and try again.");
       setLobby({ kind: 'idle' });

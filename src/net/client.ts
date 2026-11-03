@@ -1,12 +1,12 @@
+import type { GameLink, Listener } from './link';
 import type { ClientMsg, ServerMsg } from './protocol';
 
 const SERVER_URL: string =
   import.meta.env.VITE_SERVER_URL ??
   `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:8787`;
 
-type Listener = (msg: ServerMsg) => void;
-
-export class OnlineClient {
+/** Online play through the relay server in `server/`. */
+export class OnlineClient implements GameLink {
   private ws: WebSocket;
   private listeners = new Set<Listener>();
   private ready: Promise<void>;

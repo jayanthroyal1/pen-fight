@@ -1,15 +1,39 @@
+import type { BoostBag, BoostId } from './boosts';
 import { HALF_SEG, MAX_IMPULSE, edgeDistance, pointOnPen } from './physics';
+import { boostProblem, shotMods } from './rules';
 import type { Flick, GameState, PlayerId } from './types';
 import { DeskWorld } from './world';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
 /** How the computer plays at each difficulty: how many shots it tries, how steady its aim is. */
-export const DIFFICULTY: Record<Difficulty, { label: string; samples: number; wobble: number }> = {
-  easy: { label: 'Easy', samples: 10, wobble: 0.3 },
-  medium: { label: 'Medium', samples: 35, wobble: 0.1 },
-  hard: { label: 'Hard', samples: 90, wobble: 0.02 },
+export const DIFFICULTY: Record<Difficulty, { label: string; samples: number; wobble: number; boosts: number }> = {
+  easy: { label: 'Easy', samples: 10, wobble: 0.3, boosts: 1 },
+  medium: { label: 'Medium', samples: 35, wobble: 0.1, boosts: 2 },
+  hard: { label: 'Hard', samples: 90, wobble: 0.02, boosts: 3 },
 };
+
+/** Closer than this (desk px) to an edge, a pen is in danger. */
+const DANGER = 110;
+
+/**
+ * Whether the computer arms a super power this turn, and which: defence when
+ * its own pen is near an edge, attack when the other pen is, and now and then
+ * one for the fun of it.
+ */
+export function chooseAiBoost(state: GameState, me: PlayerId, bag: BoostBag, rng: () => number = Math.random): BoostId | null {
+  const has = (id: BoostId) => (bag[id] ?? 0) > 0 && !boostProblem(state, me, id);
+  const mine = edgeDistance(state.pens[me]);
+  const theirs = edgeDistance(state.pens[me === 0 ? 1 : 0]);
+  const pickFrom = (ids: BoostId[]) => {
+    const ok = ids.filter(has);
+    return ok.length ? ok[Math.floor(rng() * ok.length)] : null;
+  };
+  if (mine < DANGER && rng() < 0.7) return pickFrom(['wall', 'grip', 'health']);
+  if (theirs < DANGER && rng() < 0.7) return pickFrom(['lightning', 'strike', 'double']);
+  if (rng() < 0.2) return pickFrom(['ice', 'tilt', 'strike', 'lightning']);
+  return null;
+}
 
 export interface AiOptions {
   rng?: () => number;
@@ -27,6 +51,7 @@ export function chooseAiShot(state: GameState, me: PlayerId, opts: AiOptions = {
   const mine = state.pens[me];
   const theirs = state.pens[me === 0 ? 1 : 0];
   const world = new DeskWorld(state.pens);
+  world.setMods(shotMods(state, me), me);
 
   let best: Flick = { along: 0, ix: 0, iy: 0 };
   let bestScore = -Infinity;

@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { BOOSTS, MAX_BOOSTS, type BoostTiming } from '../game/boosts';
 import { PEN_MODELS, type PenLevel } from '../game/pens';
 import { POWERS, type PowerId } from '../game/powers';
-import { StoreError, boxLimit, buyPen, buyPower, hasRoom, type Profile } from '../profile/economy';
+import { StoreError, boostCount, boxLimit, buyBoost, buyPen, buyPower, hasRoom, type Profile } from '../profile/economy';
+import { BoostIcon } from './BoostIcon';
 import { PenBox, PenLabel, PenSwatch, Rupees } from './PenBox';
 
 interface Props {
@@ -10,9 +12,18 @@ interface Props {
   onBack: () => void;
 }
 
-type Tab = 'pens' | 'powers';
+type Tab = 'pens' | 'boosts' | 'powers';
 
-/** The stationery shop: pens by level, and hero powers for a pen you own. */
+const TAB_NAMES: Record<Tab, string> = { pens: 'Pens', boosts: 'Super powers', powers: 'Hero powers' };
+
+/** When each kind of super power works, for its shelf heading. */
+const TIMING: Record<BoostTiming, string> = {
+  mine: 'For your shot',
+  theirs: 'For their next shot',
+  round: 'For the round',
+};
+
+/** The stationery shop: pens by level, one-use super powers, and hero powers for a pen you own. */
 export function Store({ profile, onSave, onBack }: Props) {
   const [tab, setTab] = useState<Tab>('pens');
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
@@ -43,7 +54,7 @@ export function Store({ profile, onSave, onBack }: Props) {
       </header>
 
       <div className="tabs" role="tablist" aria-label="Store">
-        {(['pens', 'powers'] as const).map((t) => (
+        {(['pens', 'boosts', 'powers'] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -55,7 +66,7 @@ export function Store({ profile, onSave, onBack }: Props) {
               setMessage(null);
             }}
           >
-            {t === 'pens' ? 'Pens' : 'Hero powers'}
+            {TAB_NAMES[t]}
           </button>
         ))}
       </div>
@@ -87,6 +98,45 @@ export function Store({ profile, onSave, onBack }: Props) {
                         className="btn btn-secondary btn-small"
                         aria-describedby={!afford || full ? 'store-limit' : undefined}
                         onClick={() => attempt(() => buyPen(profile, m.id), `${m.name} is in your pencil box.`)}
+                      >
+                        Buy
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
+
+      {tab === 'boosts' && (
+        <div className="shelves">
+          <p className="muted">
+            Each super power works once. In a match, tap it on your turn before you flick (one a turn), and tap
+            again to take it back. You can hold up to {MAX_BOOSTS} of each. Practice games let you try every one for free.
+          </p>
+          {(['mine', 'theirs', 'round'] as const).map((timing) => (
+            <section key={timing} className="shelf">
+              <h2>{TIMING[timing]}</h2>
+              <ul className="shelf-items powers">
+                {BOOSTS.filter((b) => b.timing === timing).map((b) => {
+                  const have = boostCount(profile, b.id);
+                  return (
+                    <li key={b.id} className="shop-item power-item boost-item" style={{ '--boost': b.color } as React.CSSProperties}>
+                      <span className="boost-chip" aria-hidden>
+                        <BoostIcon id={b.id} />
+                      </span>
+                      <span className="pen-text">
+                        <span className="pen-name">{b.name}</span>
+                        <span className="pen-meta">{b.tagline}</span>
+                        <span className="pen-meta">You have {have}</span>
+                      </span>
+                      <span className="price-tag">₹{b.price}</span>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-small"
+                        onClick={() => attempt(() => buyBoost(profile, b.id), `${b.name} bought. You have ${have + 1}.`)}
                       >
                         Buy
                       </button>

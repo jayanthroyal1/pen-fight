@@ -2,10 +2,11 @@
  * Pen fight sounds, synthesised with Web Audio so no files ship with the game:
  * a finger flick, plastic (or metal) pens clacking, taps on the wooden desk,
  * a pen sliding, a pen clattering on the floor after falling off, and the
- * class clapping for whoever wins, the classroom chattering in the background,
+ * class clapping for whoever wins, the recorded classroom noise in the background,
  * and each hero power's own sounds.
  */
 
+import type { BoostId } from '../game/boosts';
 import type { PowerId } from '../game/powers';
 import { renderApplause, type ApplauseOptions } from './applause';
 import { loadChatter, type NoisePreset } from './chatter';
@@ -185,6 +186,93 @@ class SoundBoard {
     }
   }
 
+  /** A super power being armed: each has its own sound. */
+  boost(id: BoostId): void {
+    const a = this.audio();
+    if (!a) return;
+    const { t } = a;
+    switch (id) {
+      case 'lightning':
+        // Crackling static that builds into a hum.
+        for (let i = 0; i < 9; i++) this.noiseBurst(t + i * 0.035 + Math.random() * 0.02, 0.02, 'bandpass', 2500 + Math.random() * 3000, 3, 0.35);
+        this.tone(t, 60, 0.5, 0.18, 120, 'sawtooth');
+        break;
+      case 'health':
+        // A heartbeat, then a rising chime.
+        this.tone(t, 70, 0.12, 0.6, 45);
+        this.tone(t + 0.16, 65, 0.12, 0.45, 42);
+        [523, 659, 784, 1047].forEach((f, i) => this.tone(t + 0.3 + i * 0.07, f, 0.5, 0.16, f, 'triangle'));
+        break;
+      case 'grip':
+        // A heavy clunk and a latch.
+        this.tone(t, 110, 0.25, 0.7, 55);
+        this.noiseBurst(t, 0.05, 'lowpass', 600, 1, 0.6);
+        this.noiseBurst(t + 0.12, 0.03, 'bandpass', 3200, 4, 0.45);
+        this.tone(t + 0.12, 1800, 0.12, 0.08, 1800, 'square');
+        break;
+      case 'ice':
+        // Glassy shimmer and a cold hiss.
+        for (let i = 0; i < 7; i++) this.tone(t + i * 0.05, 2200 + Math.random() * 2600, 0.6, 0.06, undefined, 'sine');
+        this.sweep(t, 7000, 1500, 0.8, 0.3);
+        break;
+      case 'strike':
+        // Fire roaring up and a deep thump.
+        this.sweep(t, 300, 2400, 0.45, 0.5);
+        this.noiseBurst(t, 0.5, 'lowpass', 500, 0.7, 0.5);
+        this.tone(t + 0.05, 80, 0.4, 0.7, 40);
+        break;
+      case 'tilt':
+        // A wooden desk creaking as it tips.
+        this.tone(t, 180, 0.7, 0.22, 95, 'sawtooth');
+        this.noiseBurst(t, 0.6, 'bandpass', 420, 6, 0.35);
+        this.tone(t + 0.5, 95, 0.15, 0.4, 60);
+        break;
+      case 'wall':
+        // A force field powering up.
+        this.tone(t, 110, 0.7, 0.25, 440, 'sawtooth');
+        this.tone(t + 0.02, 220, 0.7, 0.12, 880, 'square');
+        this.tone(t + 0.55, 880, 0.6, 0.12, 880, 'triangle');
+        break;
+      case 'double':
+        [660, 990].forEach((f, i) => {
+          this.tone(t + i * 0.14, f, 0.35, 0.2, f * 1.5, 'triangle');
+          this.noiseBurst(t + i * 0.14, 0.04, 'highpass', 4000, 0.7, 0.2);
+        });
+        break;
+    }
+  }
+
+  /** A lightning strike: a split-second crack and rolling thunder. */
+  zap(): void {
+    const a = this.audio();
+    if (!a) return;
+    const { t } = a;
+    this.noiseBurst(t, 0.06, 'highpass', 1800, 0.7, 1);
+    this.noiseBurst(t + 0.01, 0.12, 'bandpass', 900, 0.8, 0.8);
+    this.noiseBurst(t + 0.05, 1.8, 'lowpass', 180, 0.6, 0.9);
+    this.tone(t + 0.04, 55, 1.2, 0.6, 32);
+  }
+
+  /** A pen bouncing off the Force Wall. */
+  wallHit(strength: number): void {
+    const a = this.audio();
+    if (!a) return;
+    const { t } = a;
+    const g = 0.2 + strength * 0.8;
+    this.tone(t, 620, 0.35, 0.22 * g, 240, 'triangle');
+    this.tone(t, 1240, 0.2, 0.08 * g, 480, 'sine');
+    this.noiseBurst(t, 0.05, 'bandpass', 2400, 2, 0.3 * g);
+  }
+
+  /** Health Boost brings a fallen pen back. */
+  saved(): void {
+    const a = this.audio();
+    if (!a) return;
+    const { t } = a;
+    [392, 523, 659, 784, 1047].forEach((f, i) => this.tone(t + i * 0.06, f, 0.6, 0.15, f, 'triangle'));
+    this.sweep(t, 800, 5000, 0.6, 0.2);
+  }
+
   /** A pen snapping in half, and the pieces clattering. */
   snap(): void {
     const a = this.audio();
@@ -335,9 +423,10 @@ class SoundBoard {
     src.start(t, Math.random() * 0.5, dur + 0.01);
   }
 
-  private tone(t: number, freq: number, dur: number, gain: number, endFreq = freq): void {
+  private tone(t: number, freq: number, dur: number, gain: number, endFreq = freq, type: OscillatorType = 'sine'): void {
     const ctx = this.ctx!;
     const osc = ctx.createOscillator();
+    osc.type = type;
     osc.frequency.setValueAtTime(freq, t);
     if (endFreq !== freq) osc.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
     const env = ctx.createGain();

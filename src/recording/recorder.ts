@@ -90,7 +90,7 @@ export class MatchRecorder {
     const t = Math.round(this.steps * stepMs);
     for (const i of impacts) {
       this.shot.impacts.push(
-        i.kind === 'pens'
+        i.kind === 'pens' || i.kind === 'wall'
           ? { t, kind: i.kind, strength: round2(i.strength) }
           : i.kind === 'desk'
             ? { t, kind: i.kind, strength: round2(i.strength), pen: i.pen }

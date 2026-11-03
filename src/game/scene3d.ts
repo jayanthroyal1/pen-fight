@@ -4,6 +4,9 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { BoostFx, NO_BOOSTS, type BoostView } from './boostFx';
+import { boost as boostOf, type BoostId } from './boosts';
 import { buildClassroom, type ChalkScore, type Classroom } from './classroom';
 import { Fx } from './fx';
 import { buildPen, type PenRig } from './penMesh';
@@ -12,6 +15,7 @@ import { PLAYER_COLORS } from './players';
 import { power as powerOf, type EntryStyle, type PowerId } from './powers';
 import type { ResolvedQuality } from './quality';
 import type { RoomTheme } from './rooms';
+import { TILT, endOf } from './rules';
 import type { Flick, Loadout, Pen, PlayerId, Vec } from './types';
 import { UNITS } from './world';
 
@@ -100,12 +104,19 @@ export class DeskScene {
   private shake = 0;
   private classroom: Classroom;
   private fx = new Fx();
+  private boostFx = new BoostFx();
+  private boosts: BoostView = NO_BOOSTS;
+  /** Tips about the desk's centre for an Uneven Desk; everything on the desk lives inside. */
+  private tiltPivot = new THREE.Group();
+  private deskSpace = new THREE.Group();
+  private tilt = 0;
   private pens: PenRig[] = [];
   /** A soft shadow on the desk under each pen, darker the closer the pen is. */
   private contacts: THREE.Mesh[] = [];
   /** High quality: render through a composer that adds ambient occlusion. */
   private composer: EffectComposer | null = null;
   private gtao: GTAOPass | null = null;
+  private bloom: UnrealBloomPass | null = null;
   private pixelRatio = 1;
   /** Smoothed frame time (ms), to step quality down if the device struggles. */
   private frameMs = 16;
@@ -151,14 +162,18 @@ export class DeskScene {
     this.scene.fog = new THREE.Fog(theme.dado, 18, 40);
 
     this.classroom = buildClassroom(this.scene, theme, this.renderer.capabilities.getMaxAnisotropy());
-    this.scene.add(this.fx.group);
+    this.tiltPivot.position.set(W / 2, 0, D / 2);
+    this.deskSpace.position.set(-W / 2, 0, -D / 2);
+    this.tiltPivot.add(this.deskSpace);
+    this.scene.add(this.tiltPivot);
+    this.deskSpace.add(this.classroom.table, this.fx.group, this.boostFx.group);
 
     this.glow = new THREE.Mesh(
       new THREE.PlaneGeometry(L * 1.3, 0.42),
       new THREE.MeshBasicMaterial({ map: radialTexture(), transparent: true, depthWrite: false }),
     );
     this.glow.rotation.x = -Math.PI / 2;
-    this.scene.add(this.glow);
+    this.deskSpace.add(this.glow);
 
     const dashGeo = new THREE.PlaneGeometry(AIM_DASH_LENGTH, 0.04);
     dashGeo.rotateX(-Math.PI / 2);
@@ -169,7 +184,7 @@ export class DeskScene {
     );
     this.aimDashes.count = 0;
     this.aimDashes.frustumCulled = false;
-    this.scene.add(this.aimDashes);
+    this.deskSpace.add(this.aimDashes);
 
     const ringGeo = new THREE.RingGeometry(0.05, 0.068, 24);
     ringGeo.rotateX(-Math.PI / 2);
@@ -178,7 +193,7 @@ export class DeskScene {
       new THREE.MeshBasicMaterial({ color: AIM_COLOR, transparent: true, opacity: 0.9, depthWrite: false }),
     );
     this.aimRing.visible = false;
-    this.scene.add(this.aimRing);
+    this.deskSpace.add(this.aimRing);
 
     // Rubber band from the grab point back to the pointer.
     const bandGeo = new THREE.PlaneGeometry(1, 0.022);
@@ -189,11 +204,11 @@ export class DeskScene {
       new THREE.MeshBasicMaterial({ color: '#fff6e0', transparent: true, opacity: 0.55, depthWrite: false }),
     );
     this.band.visible = false;
-    this.scene.add(this.band);
+    this.deskSpace.add(this.band);
 
     this.finger = buildFinger();
     this.finger.group.visible = false;
-    this.scene.add(this.finger.group);
+    this.deskSpace.add(this.finger.group);
 
     if (high) {
       // Multisampled HDR target, then ambient occlusion: soft darkening where pens meet the desk
@@ -206,6 +221,9 @@ export class DeskScene {
       this.gtao.updateGtaoMaterial({ radius: 0.28, distanceExponent: 1.4, thickness: 1, scale: 1.1, samples: 12 });
       this.gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
       this.composer.addPass(this.gtao);
+      // Bloom only catches what's brighter than white: super power glows, sparks and lightning.
+      this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.7, 0.4, 1.8);
+      this.composer.addPass(this.bloom);
       this.composer.addPass(new OutputPass());
       // See-through overlays (light beams, glows, the aim line, contact shadows) aren't
       // solid, so hide them while occlusion is worked out or they darken the desk.
@@ -227,11 +245,11 @@ export class DeskScene {
       this.loadouts.every((l, i) => l.model === loadouts[i].model && l.power === loadouts[i].power);
     if (same) return;
     this.loadouts = loadouts;
-    for (const p of this.pens) this.scene.remove(p.group);
-    for (const c of this.contacts) this.scene.remove(c);
+    for (const p of this.pens) this.deskSpace.remove(p.group);
+    for (const c of this.contacts) this.deskSpace.remove(c);
     this.pens = loadouts.map((l, i) => {
       const rig = buildPen(l.model, l.power, { marker: PLAYER_COLORS[i as PlayerId] });
-      this.scene.add(rig.group);
+      this.deskSpace.add(rig.group);
       return rig;
     });
     this.contacts = this.pens.map(() => {
@@ -242,7 +260,7 @@ export class DeskScene {
         new THREE.MeshBasicMaterial({ map: contactTexture(), transparent: true, depthWrite: false, color: '#000000' }),
       );
       mesh.renderOrder = 1;
-      this.scene.add(mesh);
+      this.deskSpace.add(mesh);
       return mesh;
     });
   }
@@ -317,8 +335,11 @@ export class DeskScene {
     this.camera.position.copy(this.cameraBase);
     this.camera.updateMatrixWorld();
     this.raycaster.setFromCamera(ndc, this.camera);
+    // Into desk space, so a tipped desk is aimed on properly.
+    this.deskSpace.updateMatrixWorld();
+    const ray = this.raycaster.ray.clone().applyMatrix4(this.deskSpace.matrixWorld.clone().invert());
     const hit = new THREE.Vector3();
-    if (!this.raycaster.ray.intersectPlane(this.aimPlane, hit)) return null;
+    if (!ray.intersectPlane(this.aimPlane, hit)) return null;
     return { x: hit.x * UNITS, y: hit.z * UNITS };
   }
 
@@ -330,7 +351,7 @@ export class DeskScene {
     const rect = this.canvas.getBoundingClientRect();
     const toScreen = (along: number) => {
       const p = pointOnPen(pen, along);
-      const v = new THREE.Vector3(p.x / UNITS, pen.h / UNITS, p.y / UNITS).project(this.camera);
+      const v = this.deskSpace.localToWorld(new THREE.Vector3(p.x / UNITS, pen.h / UNITS, p.y / UNITS)).project(this.camera);
       return { x: rect.left + ((v.x + 1) / 2) * rect.width, y: rect.top + ((1 - v.y) / 2) * rect.height };
     };
     const a = toScreen(-HALF_SEG);
@@ -428,7 +449,7 @@ export class DeskScene {
     const at = new THREE.Vector3(W / 2, R, D / 2);
     victim.group.position.copy(at);
     victim.group.quaternion.fromArray(flatRotation(this.viewer === 0 ? Math.PI / 2 : -Math.PI / 2));
-    this.scene.add(victim.group);
+    this.deskSpace.add(victim.group);
     if (this.pens[loser.id]) this.pens[loser.id].group.visible = false;
     this.breaking = {
       start: performance.now() / 1000,
@@ -445,6 +466,49 @@ export class DeskScene {
     };
   }
 
+  /** What the super powers in play look like; set whenever the game state changes. */
+  setBoosts(view: BoostView): void {
+    this.boosts = view;
+  }
+
+  /** A super power was just armed on `pen`: a ring of its colour and a shout. */
+  armBoost(id: BoostId, pen: Pen): void {
+    const b = boostOf(id);
+    const at = new THREE.Vector3(pen.x / UNITS, R, pen.y / UNITS);
+    this.fx.ring(at.clone().setY(0.01), b.color, 1.3, 0.6, 0.08);
+    this.fx.burst(at, b.color, 36, 2);
+    if (id === 'ice') this.fx.ring(new THREE.Vector3(W / 2, 0.01, D / 2), '#ffffff', 5, 0.9, 0.04);
+    if (id === 'tilt') this.bump(0.8);
+    if (id === 'lightning') this.boostFx.strikeAt(at.clone().add(new THREE.Vector3(0.4, 0, 0.2)));
+    this.onShout(b.shout, b.color, null);
+  }
+
+  /** Lightning strikes `pen` away. */
+  zap(pen: Pen): void {
+    const at = new THREE.Vector3(pen.x / UNITS, R, pen.y / UNITS);
+    this.boostFx.strikeAt(at);
+    this.fx.burst(at, boostOf('lightning').color, 70, 3.4, 0.8);
+    this.fx.ring(at.clone().setY(0.01), '#ffffff', 1.6, 0.5, 0.08);
+    this.fx.crack(at, '#0b1830', 1.6);
+    this.bump(1.6);
+    this.onShout('ZAP!', boostOf('lightning').color, null);
+  }
+
+  wallHit(strength: number): void {
+    this.boostFx.wallHit(strength);
+    this.bump(strength * 0.5);
+  }
+
+  /** Health Boost: a fallen pen is back on the desk. */
+  saved(pen: Pen): void {
+    const at = new THREE.Vector3(pen.x / UNITS, R, pen.y / UNITS);
+    const color = boostOf('health').color;
+    this.fx.beam(at, color, 1.4);
+    this.fx.burst(at, color, 60, 2.4);
+    this.fx.ring(at.clone().setY(0.01), color, 1.4, 0.7);
+    this.onShout('SAVED!', color, null);
+  }
+
   /** Shakes the view a little for a hit of `strength` 0..1. */
   bump(strength: number): void {
     this.shake = Math.min(0.09, this.shake + strength * 0.05);
@@ -459,6 +523,11 @@ export class DeskScene {
     if (this.intro) this.animateIntro(pens);
     if (this.breaking) this.animateBreak(dt);
     this.fx.update(dt);
+    this.boostFx.update(this.boosts, this.pens.map((p) => p.group), dt, time);
+    // An Uneven Desk leans down towards the end of the player it's waiting for.
+    const lean = this.boosts.tilt === null ? 0 : -Math.asin(TILT) * endOf(this.boosts.tilt);
+    this.tilt += (lean - this.tilt) * Math.min(1, dt * 3);
+    this.tiltPivot.rotation.z = this.tilt + (this.boosts.tilt !== null ? Math.sin(time * 9) * 0.002 : 0);
 
     const lit = highlight !== null && !this.busy() ? pens[highlight] : null;
     this.glow.visible = !!lit && !lit.out;
@@ -493,7 +562,7 @@ export class DeskScene {
 
   /** Everything drawn see-through on top of the scene. */
   private overlays(): THREE.Object3D[] {
-    return [this.fx.group, this.glow, this.aimDashes, this.aimRing, this.band, ...this.contacts];
+    return [this.fx.group, this.boostFx.group, this.glow, this.aimDashes, this.aimRing, this.band, ...this.contacts];
   }
 
   /** Keeps each pen's contact shadow under it, fading as the pen lifts or falls. */
@@ -535,6 +604,8 @@ export class DeskScene {
 
   dispose(): void {
     this.fx.clear();
+    this.boostFx.dispose();
+    this.bloom?.dispose();
     this.scene.traverse((o) => {
       if (o instanceof THREE.Mesh) {
         o.geometry.dispose();
@@ -671,7 +742,7 @@ export class DeskScene {
       const fade = Math.max(0, Math.min(1, (t - (end - 0.6)) / 0.6));
       setFade(b.victim, fade);
       if (t >= end) {
-        this.scene.remove(b.victim.group);
+        this.deskSpace.remove(b.victim.group);
         this.breaking = null;
         b.onDone();
       }

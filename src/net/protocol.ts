@@ -1,3 +1,4 @@
+import type { BoostId } from '../game/boosts';
 import type { RoomId } from '../game/rooms';
 import type { Flick, GameState, Loadout, PlayerId } from '../game/types';
 
@@ -24,7 +25,8 @@ export type ClientMsg =
   | ({ t: 'quick'; room: RoomId } & Seat)
   /** Stop looking for a quick match, or give up a room nobody has joined. */
   | { t: 'cancel' }
-  | { t: 'shot'; flick: Flick }
+  /** A flick, with the super power the shooter armed for it, if any. */
+  | { t: 'shot'; flick: Flick; boost?: BoostId | null }
   | { t: 'sync'; state: GameState }
   | { t: 'next' }
   /** The match winner's decision about the loser's pen. */
@@ -37,7 +39,7 @@ export type ServerMsg =
   /** `players` holds both seats, by player number. */
   | { t: 'start'; you: PlayerId; room: RoomId; players: [Seat, Seat] }
   | { t: 'error'; message: string }
-  | { t: 'shot'; flick: Flick }
+  | { t: 'shot'; flick: Flick; boost?: BoostId | null }
   | { t: 'sync'; state: GameState }
   | { t: 'next' }
   | { t: 'prize'; kind: PrizeKind }

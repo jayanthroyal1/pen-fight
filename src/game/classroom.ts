@@ -25,6 +25,8 @@ export interface ChalkScore {
 }
 
 export interface Classroom {
+  /** The desk with its frame and legs, so the desk can be tipped (Uneven Desk). */
+  table: THREE.Group;
   /** Far wall, bench and posters, seen beyond the desk's far end; one set per camera orientation. */
   far: { landscape: THREE.Group; portrait: THREE.Group };
   setScore(score: ChalkScore): void;
@@ -65,7 +67,9 @@ export function buildClassroom(scene: THREE.Scene, theme: RoomTheme, maxAnisotro
   desk.position.set(W / 2, -DESK_THICKNESS / 2, D / 2);
   desk.receiveShadow = true;
   desk.castShadow = true;
-  scene.add(desk);
+  const table = new THREE.Group();
+  table.add(desk);
+  scene.add(table);
 
   // Steel frame and legs.
   const steel = new THREE.MeshStandardMaterial({ color: '#3b3f45', metalness: 0.7, roughness: 0.45 });
@@ -79,11 +83,11 @@ export function buildClassroom(scene: THREE.Scene, theme: RoomTheme, maxAnisotro
     const leg = new THREE.Mesh(new THREE.BoxGeometry(0.16, legH, 0.16), steel);
     leg.position.set(x, FLOOR_Y + legH / 2, z);
     leg.castShadow = true;
-    scene.add(leg);
+    table.add(leg);
   }
   const apron = new THREE.Mesh(new THREE.BoxGeometry(W - 0.6, 0.3, D - 0.6), steel);
   apron.position.set(W / 2, -DESK_THICKNESS - 0.15, D / 2);
-  scene.add(apron);
+  table.add(apron);
 
   const floorTex = new THREE.CanvasTexture(floorCanvas(theme));
   floorTex.colorSpace = THREE.SRGBColorSpace;
@@ -112,6 +116,7 @@ export function buildClassroom(scene: THREE.Scene, theme: RoomTheme, maxAnisotro
   scene.add(landscape, portrait);
 
   return {
+    table,
     far: { landscape, portrait },
     setScore(score) {
       drawChalkScore(chalk, theme.bench, score);

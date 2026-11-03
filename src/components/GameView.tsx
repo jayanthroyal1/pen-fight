@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { sounds } from '../audio/sounds';
-import { DIFFICULTY, chooseAiShot, type Difficulty } from '../game/ai';
+import { DIFFICULTY, chooseAiBoost, chooseAiShot, type Difficulty } from '../game/ai';
+import type { BoostView } from '../game/boostFx';
+import { BOOSTS, boost as boostOf, isBoostId, type BoostBag, type BoostId } from '../game/boosts';
 import { MIN_PULL_PX, easeFlick, flickFromPull, pullPixels, pullPower, type Drag } from '../game/aiming';
 import { MAX_IMPULSE, interpolatePen, pointOnPen } from '../game/physics';
 import { isMetalPen, penModel } from '../game/pens';
@@ -8,17 +10,30 @@ import { PLAYER_COLORS } from '../game/players';
 import { power as powerOf, type PowerId } from '../game/powers';
 import { resolveQuality } from '../game/quality';
 import type { Room } from '../game/rooms';
-import { WIN_SCORE, isFinalRound, matchWinner, newMatch, nextRound, other, resolveShot } from '../game/rules';
+import {
+  WIN_SCORE,
+  armBoost,
+  boostProblem,
+  disarmBoost,
+  isFinalRound,
+  matchWinner,
+  newMatch,
+  nextRound,
+  other,
+  resolveShot,
+  shotMods,
+} from '../game/rules';
 import { DeskScene, type Aim } from '../game/scene3d';
 import type { Flick, GameState, Loadout, Pen, PlayerId } from '../game/types';
 import { DT, DeskWorld, type Impact } from '../game/world';
-import type { OnlineClient } from '../net/client';
+import type { GameLink } from '../net/link';
 import type { PrizeKind } from '../net/protocol';
 import { MAX_PENS, type OwnedPen, type PrizeChoice } from '../profile/economy';
 import { MatchRecorder } from '../recording/recorder';
 import { SHOT_LABELS, bestShots, isNewBest, type Highlight } from '../recording/highlights';
 import { REPLAY_SPEED, replayPose } from '../recording/replay';
 import { getMatchStore } from '../recording/store';
+import { BoostIcon } from './BoostIcon';
 import { PenBox, PenLabel, PenSwatch, Rupees } from './PenBox';
 
 export type Mode = 'local' | 'ai' | 'online';
@@ -35,14 +50,18 @@ export interface MatchSetup {
   boxes: [OwnedPen[] | null, OwnedPen[] | null];
   /** Whether each player's pencil box has room for a won pen. */
   boxRoom: [boolean, boolean];
+  /** Super powers each player on this device can use; null for an online opponent. */
+  bags: [BoostBag | null, BoostBag | null];
   difficulty: Difficulty;
 }
 
 interface Props {
   setup: MatchSetup;
-  online?: { client: OnlineClient; me: PlayerId };
+  online?: { client: GameLink; me: PlayerId };
   /** A staked match is settled: who won, and what they did with the loser's pen (null: took it). */
   onSettle?: (winner: PlayerId, choice: PrizeChoice | null) => void;
+  /** A player used up one of their super powers. */
+  onSpendBoost?: (player: PlayerId, id: BoostId) => void;
   onExit: () => void;
 }
 
@@ -69,6 +88,31 @@ const buzz = (ms: number) => {
   }
 };
 
+/** What the scene should show for the super powers in a state; `shooter` is whose shot is under way. */
+function boostView(s: GameState, shooter: PlayerId): BoostView {
+  const live = s.phase === 'aim' || s.phase === 'moving';
+  const active = s.phase === 'moving' ? shooter : s.turn;
+  const view: BoostView = { wall: null, ice: 0, tilt: null, grip: [false, false], lives: live ? s.lives : [0, 0], charged: [null, null] };
+  if (!live) return view;
+  for (const a of s.armed) {
+    const now = a.target === active;
+    if (a.id === 'wall') view.wall = { by: a.by, active: now };
+    else if (a.id === 'ice') view.ice = Math.max(view.ice, now ? 1 : 0.3);
+    else if (a.id === 'tilt' && now) view.tilt = a.target;
+    else if (a.id === 'grip') view.grip[a.by] = true;
+    else if (a.target === a.by) view.charged[a.by] = a.id;
+  }
+  return view;
+}
+
+/** A line about super powers waiting for the shot about to be taken. */
+function boostNote(s: GameState, name: (p: PlayerId) => string): string | null {
+  if (s.phase !== 'aim') return null;
+  const against = s.armed.filter((a) => a.target === s.turn && a.by !== s.turn);
+  if (!against.length) return null;
+  return against.map((a) => `${name(a.by)} used ${boostOf(a.id).name}.`).join(' ');
+}
+
 /** The end of a staked match, step by step. */
 type Prize =
   | { step: 'none' }
@@ -79,8 +123,8 @@ type Prize =
   | { step: 'breaking'; kind: PrizeKind }
   | { step: 'done'; kind: PrizeKind };
 
-export function GameView({ setup, online, onSettle, onExit }: Props) {
-  const { mode, room, staked, names, loadouts, boxes, boxRoom, difficulty } = setup;
+export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Props) {
+  const { mode, room, staked, names, loadouts, boxes, boxRoom, bags, difficulty } = setup;
   const me: PlayerId = online?.me ?? 0;
   const isHuman = useCallback((p: PlayerId) => mode === 'local' || p === me, [mode, me]);
   const you = (p: PlayerId) => (mode === 'local' ? names[p] : p === me ? 'You' : names[p]);
@@ -114,6 +158,15 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
   const worldRef = useRef<DeskWorld | null>(null);
   const sceneRef = useRef<DeskScene | null>(null);
   const recorderRef = useRef<MatchRecorder | null>(null);
+  // Super powers left this match: from each player's bag, or the practice set.
+  const [left, setLeft] = useState<[BoostBag | null, BoostBag | null]>(() => [bags[0] && { ...bags[0] }, bags[1] && { ...bags[1] }]);
+  const leftRef = useRef(left);
+  leftRef.current = left;
+  // The computer uses only so many super powers a match.
+  const aiBoostsRef = useRef(DIFFICULTY[difficulty].boosts);
+  const [boostMsg, setBoostMsg] = useState<string | null>(null);
+  const spendRef = useRef(onSpendBoost);
+  spendRef.current = onSpendBoost;
 
   const startRecording = useCallback(() => {
     recorderRef.current = new MatchRecorder(getMatchStore(), {
@@ -129,11 +182,18 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
 
   const commit = useCallback((s: GameState) => {
     const before = stateRef.current.phase;
+    const prevSaved = stateRef.current.saved;
     stateRef.current = s;
     setHud(s);
     // The class claps for whoever just won the round, and cheers the match winner.
     const won = s.phase === 'matchOver' ? 'match' : s.phase === 'roundOver' && s.roundWinner !== null ? 'round' : null;
     if (won && before !== s.phase) sounds.applause(won);
+    // Health Boost brought a pen back in the shot just resolved.
+    if (s.saved.length && s.saved !== prevSaved) {
+      for (const p of s.saved) sceneRef.current?.saved(s.pens[p]);
+      sounds.saved();
+    }
+    sceneRef.current?.setBoosts(boostView(s, shooterRef.current));
     // Any state at rest (a new round, the shooter's synced result) is placed exactly.
     if (s.phase !== 'moving') worldRef.current?.load(s.pens);
   }, []);
@@ -160,12 +220,54 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
     window.setTimeout(() => setBusy(false), seconds * 1000);
   }, []);
 
-  const shoot = useCallback(
-    (flick: Flick, broadcast: boolean) => {
+  /** Arms or takes back a super power for the player on turn, with its effect and sound. */
+  const toggleBoost = useCallback(
+    (id: BoostId) => {
       const s = stateRef.current;
+      if (s.boostThisTurn === id) {
+        commit(disarmBoost(s, s.turn));
+        setBoostMsg(null);
+        return;
+      }
+      const problem = boostProblem(s, s.turn, id);
+      if (problem) {
+        setBoostMsg(problem);
+        return;
+      }
+      sounds.unlock();
+      commit(armBoost(s, s.turn, id));
+      setBoostMsg(null);
+      sounds.boost(id);
+      sceneRef.current?.armBoost(id, s.pens[s.turn]);
+      buzz(20);
+    },
+    [commit],
+  );
+
+  const shoot = useCallback(
+    (flick: Flick, broadcast: boolean, remoteBoost: BoostId | null = null) => {
+      let s = stateRef.current;
       const world = worldRef.current;
       if (s.phase !== 'aim' || !world) return;
+      // An online opponent's super power arrives with their flick.
+      if (remoteBoost && s.boostThisTurn !== remoteBoost) {
+        s = armBoost(s, s.turn, remoteBoost);
+        sounds.boost(remoteBoost);
+        sceneRef.current?.armBoost(remoteBoost, s.pens[s.turn]);
+      }
+      const used = s.boostThisTurn;
+      if (used && !remoteBoost) {
+        const bag = leftRef.current[s.turn];
+        if (bag) {
+          const next: [BoostBag | null, BoostBag | null] = [...leftRef.current];
+          next[s.turn] = { ...bag, [used]: Math.max(0, (bag[used] ?? 0) - 1) };
+          leftRef.current = next;
+          setLeft(next);
+        }
+        spendRef.current?.(s.turn, used);
+      }
       world.load(s.pens);
+      world.setMods(shotMods(s, s.turn), s.turn);
       world.flick(s.turn, flick);
       shooterRef.current = s.turn;
       recorderRef.current?.beginShot(s, flick);
@@ -175,7 +277,8 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
       if (pw) sounds.hero(pw, 0.3);
       sceneRef.current?.playFlick({ pen: s.pens[s.turn], flick }, pw);
       commit({ ...s, phase: 'moving' });
-      if (broadcast && online) void online.client.send({ t: 'shot', flick });
+      setBoostMsg(null);
+      if (broadcast && online) void online.client.send({ t: 'shot', flick, boost: used });
     },
     [commit, online],
   );
@@ -285,7 +388,7 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
       buzz(60);
     };
     // Handle for poking at the scene from the browser console while developing.
-    if (import.meta.env.DEV) Object.assign(window, { __penfight: { scene, state: stateRef, sounds, commit } });
+    if (import.meta.env.DEV) Object.assign(window, { __penfight: { scene, state: stateRef, sounds, commit, shoot, toggleBoost } });
     worldRef.current = world;
     sceneRef.current = scene;
     sounds.startChatter(room.theme.noise);
@@ -308,6 +411,13 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
           const pw = s.loadouts[shooterRef.current].power;
           scene.strike(s.pens, pw, i.strength);
           buzz(10 + i.strength * 25);
+        } else if (i.kind === 'zap') {
+          sounds.zap();
+          scene.zap(world.read()[i.pen]);
+          buzz(80);
+        } else if (i.kind === 'wall') {
+          sounds.wallHit(i.strength);
+          scene.wallHit(i.strength);
         } else if (i.kind === 'desk') sounds.deskTap(i.strength);
         else sounds.fall(isMetalPen(s.loadouts[i.pen].model));
       }
@@ -414,15 +524,28 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
   useEffect(() => {
     if (mode !== 'ai' || busy || hud.phase !== 'aim' || hud.turn !== 1) return;
     const { samples, wobble } = DIFFICULTY[difficulty];
-    const id = window.setTimeout(() => shoot(chooseAiShot(stateRef.current, 1, { samples, wobble }), false), AI_DELAY_MS);
-    return () => window.clearTimeout(id);
-  }, [mode, busy, hud.phase, hud.turn, shoot, difficulty]);
+    let shotTimer = 0;
+    const id = window.setTimeout(() => {
+      // Sometimes the computer arms a super power first, and gives it a moment to show.
+      const bag = leftRef.current[1];
+      const pick = bag && aiBoostsRef.current > 0 ? chooseAiBoost(stateRef.current, 1, bag) : null;
+      if (pick) {
+        aiBoostsRef.current -= 1;
+        toggleBoost(pick);
+      }
+      shotTimer = window.setTimeout(() => shoot(chooseAiShot(stateRef.current, 1, { samples, wobble }), false), pick ? 900 : 0);
+    }, AI_DELAY_MS);
+    return () => {
+      window.clearTimeout(id);
+      window.clearTimeout(shotTimer);
+    };
+  }, [mode, busy, hud.phase, hud.turn, shoot, difficulty, toggleBoost]);
 
   // Opponent's moves arriving from the relay.
   useEffect(() => {
     if (!online) return;
     return online.client.subscribe((msg) => {
-      if (msg.t === 'shot') shoot(msg.flick, false);
+      if (msg.t === 'shot') shoot(msg.flick, false, isBoostId(msg.boost) ? msg.boost : null);
       else if (msg.t === 'next') advance(false);
       else if (msg.t === 'peer-left') {
         setPeerLeft(true);
@@ -523,6 +646,11 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
   else if (hud.phase !== 'aim') status = '';
   else if (!isHuman(hud.turn)) status = `${names[hud.turn]} is aiming…`;
   else status = 'Press on your pen, pull back and let go.';
+  const note = boostNote(hud, (p) => you(p));
+  // The power bar: the super powers the player on turn has, while they aim.
+  const bag = left[hud.turn];
+  const barOpen = !busy && hud.phase === 'aim' && isHuman(hud.turn) && !peerLeft && bag !== null;
+  const owned = barOpen ? BOOSTS.filter((b) => (bag![b.id] ?? 0) > 0 || hud.boostThisTurn === b.id) : [];
 
   const winner = hud.phase === 'matchOver' ? matchWinner(hud) : hud.roundWinner;
   const loser = winner === null ? null : other(winner);
@@ -580,6 +708,7 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
 
       <p className="status" aria-live="polite">
         {status}
+        {note && <span className="boost-note"> {note}</span>}
       </p>
 
       <div className="desk-wrap">
@@ -594,6 +723,39 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
             hoverRef.current = false;
           }}
         />
+
+        {barOpen && (
+          <div className="power-bar" role="toolbar" aria-label="Super powers">
+            {owned.length === 0 ? (
+              <span className="power-empty">{staked ? 'No super powers. Buy some in the store.' : 'All super powers used this match.'}</span>
+            ) : (
+              owned.map((b) => {
+                const armed = hud.boostThisTurn === b.id;
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    className={`power-btn${armed ? ' is-armed' : ''}`}
+                    style={{ '--boost': b.color } as React.CSSProperties}
+                    aria-pressed={armed}
+                    title={`${b.name}: ${b.tagline}`}
+                    onClick={() => toggleBoost(b.id)}
+                  >
+                    <BoostIcon id={b.id} />
+                    {armed && <span className="power-name">{b.name}</span>}
+                    <span className="visually-hidden">{armed ? '' : b.name}</span>
+                    <span className="power-count">{armed ? 'On' : `×${bag![b.id] ?? 0}`}</span>
+                  </button>
+                );
+              })
+            )}
+            {boostMsg && (
+              <span className="power-msg" role="alert">
+                {boostMsg}
+              </span>
+            )}
+          </div>
+        )}
 
         {banner && (
           <div key={banner.key} className="turn-banner" aria-hidden>
@@ -791,3 +953,4 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
     </main>
   );
 }
+

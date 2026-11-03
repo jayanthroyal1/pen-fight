@@ -1,3 +1,4 @@
+import { MAX_BOOSTS, boost as boostOf, type BoostBag, type BoostId } from '../game/boosts';
 import { PEN_MODELS, penModel, type PenModelId } from '../game/pens';
 import { power as powerOf, type PowerId } from '../game/powers';
 import type { Room } from '../game/rooms';
@@ -19,6 +20,8 @@ export interface Profile {
   createdAt: string;
   /** Test account: no pencil-box limit, and money is topped back up. */
   tester?: boolean;
+  /** Super powers bought and not used yet. */
+  boosts?: BoostBag;
 }
 
 export const START_RUPEES = 100;
@@ -138,6 +141,23 @@ export function buyPower(p: Profile, power: PowerId, penUid: string): Profile {
     rupees: p.rupees - pw.price,
     pens: p.pens.map((pen) => (pen.uid === penUid ? { ...pen, power } : pen)),
   };
+}
+
+/** How many of a super power the player holds. */
+export const boostCount = (p: Profile, id: BoostId) => p.boosts?.[id] ?? 0;
+
+/** Buys one use of a super power. */
+export function buyBoost(p: Profile, id: BoostId): Profile {
+  const b = boostOf(id);
+  if (boostCount(p, id) >= MAX_BOOSTS) throw new StoreError(`You already hold ${MAX_BOOSTS} ${b.name}s. Use some first.`);
+  if (p.rupees < b.price) throw new StoreError(`${b.name} costs ₹${b.price}. You have ₹${p.rupees}.`);
+  return { ...p, rupees: p.rupees - b.price, boosts: { ...p.boosts, [id]: boostCount(p, id) + 1 } };
+}
+
+/** Uses up one super power in a match. */
+export function spendBoost(p: Profile, id: BoostId): Profile {
+  if (boostCount(p, id) <= 0) return p;
+  return { ...p, boosts: { ...p.boosts, [id]: boostCount(p, id) - 1 } };
 }
 
 /** What a winner whose pencil box is full does with the pen they won. */
