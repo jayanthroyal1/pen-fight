@@ -26,8 +26,10 @@ in a classroom you can almost hear.
   finisher for breaking pens, and +10% power. The heroes are original look-alikes (Green Giant, Web
   Flicker, Steel Comet, Night Wing, Amazon Lasso, Chakra Spin) plus Hanuman Gada, which turns the pen
   into a golden mace.
-- **Super powers.** One-use powers from the store, ₹25 to ₹100. On your turn, tap one before you flick
-  (one a turn; tap again to take it back):
+- **Super powers.** Every player gets one free super power each match, any one they choose; more can
+  be bought in the store (₹25 to ₹100, one use each). The lightning button at the bottom of the desk
+  opens and closes the powers; on your turn, tap one before you flick (one a turn; tap again to take it
+  back):
 
   | Power | Price | What it does |
   | --- | --- | --- |
@@ -40,7 +42,7 @@ in a classroom you can almost hear.
   | Force Wall | ₹75 | Glowing walls round your half of the desk for their next shot |
   | Double Turn | ₹100 | Shoot again straight after this shot |
 
-  Practice games let you try each one once a match for free, and the computer uses a few too.
+  Practice games also let you try each one once a match, and the computer uses a few too.
 - **Ways to play.** Online for rupees (quick match, invite link or room code), two players on one
   phone (each with their own profile and bets), or practice against the computer at Easy, Medium or
   Hard (no money or pens change hands).

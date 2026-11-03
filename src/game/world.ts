@@ -74,15 +74,16 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
  * The desk top is at height 0; desk x maps to world x and desk y to world z.
  */
 export class DeskWorld {
-  private world: RapierNs.World;
-  private bodies: RapierNs.RigidBody[];
-  private colliders: RapierNs.Collider[];
-  private events: RapierNs.EventQueue | null;
+  private world!: RapierNs.World;
+  private bodies: RapierNs.RigidBody[] = [];
+  private colliders: RapierNs.Collider[] = [];
+  private events: RapierNs.EventQueue | null = null;
+  private withEvents: boolean;
   private impacts: Impact[] = [];
   private out: [boolean, boolean] = [false, false];
   private models: Pen['model'][];
   private powers: Pen['power'][];
-  private desk: RapierNs.Collider;
+  private desk!: RapierNs.Collider;
   private walls: RapierNs.Collider[] = [];
   private mods: ShotMods = PLAIN_SHOT;
   private shooter: PlayerId = 0;
@@ -93,12 +94,30 @@ export class DeskWorld {
   /** `withEvents` collects impacts for sound; the computer's look-ahead leaves it off. */
   constructor(pens: [Pen, Pen], withEvents = false) {
     if (!R) throw new Error('initPhysics() must finish before creating a DeskWorld');
-    const r = R;
+    this.withEvents = withEvents;
+    this.models = pens.map((p) => p.model);
+    this.powers = pens.map((p) => p.power);
+    this.build(pens);
+  }
+
+  /**
+   * Throws away everything Rapier remembers from earlier shots (contact caches,
+   * sleeping bodies) and places the pens afresh. Both players' browsers do this
+   * before each shot, so the same flick plays out the same on both.
+   */
+  restart(pens: [Pen, Pen]): void {
+    this.free();
+    this.walls = [];
+    this.mods = PLAIN_SHOT;
+    this.build(pens);
+  }
+
+  private build(pens: [Pen, Pen]): void {
+    const r = R!;
+    const withEvents = this.withEvents;
     this.world = new r.World({ x: 0, y: -GRAVITY, z: 0 });
     this.world.timestep = DT;
     this.events = withEvents ? new r.EventQueue(true) : null;
-    this.models = pens.map((p) => p.model);
-    this.powers = pens.map((p) => p.power);
 
     const desk = this.world.createRigidBody(
       r.RigidBodyDesc.fixed().setTranslation(DESK.width / 2 / S, -0.5, DESK.height / 2 / S),
@@ -324,7 +343,9 @@ export class DeskWorld {
     const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
     const m = body.mass();
     body.applyImpulse({ x: ((b.x - a.x) / len) * ZAP_SPEED * m, y: ZAP_LIFT * m, z: ((b.z - a.z) / len) * ZAP_SPEED * m }, true);
-    body.applyTorqueImpulse({ x: 0, y: (Math.random() - 0.5) * 0.08 * m, z: 0 }, true);
+    // A spin that depends only on where the pens are, so both browsers agree.
+    const side = (b.z - a.z) * (b.x - a.x) >= 0 ? 1 : -1;
+    body.applyTorqueImpulse({ x: 0, y: side * 0.03 * m, z: 0 }, true);
     if (this.events) this.impacts.push({ kind: 'zap', pen: victim as PlayerId });
   }
 

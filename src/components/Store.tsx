@@ -113,8 +113,9 @@ export function Store({ profile, onSave, onBack }: Props) {
       {tab === 'boosts' && (
         <div className="shelves">
           <p className="muted">
-            Each super power works once. In a match, tap it on your turn before you flick (one a turn), and tap
-            again to take it back. You can hold up to {MAX_BOOSTS} of each. Practice games let you try every one for free.
+            Every match gives you one free super power: pick whichever suits the moment. The ones you buy here
+            work once each, after that. In a match, open the powers with the lightning button at the bottom and tap
+            one on your turn before you flick (one a turn; tap again to take it back). You can hold up to {MAX_BOOSTS} of each.
           </p>
           {(['mine', 'theirs', 'round'] as const).map((timing) => (
             <section key={timing} className="shelf">

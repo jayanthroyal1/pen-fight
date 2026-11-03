@@ -1937,22 +1937,92 @@ div.room-card.is-locked {
 }
 
 /* Super powers: the bar of armed-before-you-flick boosts along the bottom of the desk. */
-.power-bar {
+.powers {
   position: absolute;
-  left: 50%;
+  left: var(--space-3);
+  right: var(--space-3);
   bottom: var(--space-3);
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+
+.powers > * {
+  pointer-events: auto;
+}
+
+.power-bar {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
   gap: var(--space-2);
-  width: max-content;
-  max-width: calc(100% - 2 * var(--space-3));
+  min-width: 0;
+  max-width: 100%;
+  margin-right: auto;
+  margin-left: auto;
   padding: var(--space-2);
-  background: rgba(20, 14, 10, 0.72);
+  background: rgba(20, 14, 10, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
-  transform: translateX(-50%);
+}
+
+.power-head {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--cream);
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.power-btn.is-empty {
+  opacity: 0.45;
+}
+
+.powers-toggle {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  color: #7fd4ff;
+  background: radial-gradient(circle at 50% 35%, #3a2c20, #1d1712 70%);
+  border: 2px solid rgba(127, 212, 255, 0.55);
+  border-radius: 50%;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+
+.powers-toggle .boost-icon {
+  width: 26px;
+  height: 26px;
+  filter: drop-shadow(0 0 6px rgba(127, 212, 255, 0.8));
+}
+
+.powers-toggle.is-open {
+  border-color: #7fd4ff;
+  box-shadow: 0 0 0 3px rgba(127, 212, 255, 0.25), 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+.powers-toggle:focus-visible {
+  outline: 2px solid #7fd4ff;
+  outline-offset: 3px;
+}
+
+.powers-badge {
+  position: absolute;
+  top: -8px;
+  right: -10px;
+  padding: 0 6px;
+  color: #1d1712;
+  font-family: var(--font-type);
+  font-size: 0.7rem;
+  line-height: 1.5;
+  background: var(--natraj);
+  border-radius: 999px;
 }
 
 .power-btn {
@@ -2046,16 +2116,20 @@ div.room-card.is-locked {
 }
 
 @media (max-width: 640px) {
-  /* On a phone the bar sits under the desk, not over it. */
-  .power-bar {
+  /* On a phone the powers sit under the desk, not over it. */
+  .powers {
     position: static;
+    margin-top: var(--space-2);
+  }
+
+  .power-bar {
     flex-wrap: nowrap;
     justify-content: flex-start;
-    width: auto;
-    max-width: none;
-    margin-top: var(--space-2);
     overflow-x: auto;
-    transform: none;
+  }
+
+  .power-head {
+    display: none;
   }
 
   .power-btn {

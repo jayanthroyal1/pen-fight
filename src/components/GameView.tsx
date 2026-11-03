@@ -79,6 +79,20 @@ const maxPull = (canvas: HTMLCanvasElement) => Math.max(90, 0.32 * Math.min(canv
 /** How close (CSS px) a press must be to the pen to grab it; wider for a fingertip. */
 const grabRadius = (e: React.PointerEvent) => (e.pointerType === 'touch' ? 34 : 20);
 
+/** Remembers whether the player keeps the powers panel open. */
+const POWERS_OPEN_KEY = 'penfight:powers-open';
+
+function readPowersOpen(): boolean {
+  try {
+    return localStorage.getItem(POWERS_OPEN_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+/** How often (ms) an online shooter's aim is sent to the other player. */
+const AIM_SEND_MS = 80;
+
 /** A short vibration on phones that support it. */
 const buzz = (ms: number) => {
   try {
@@ -135,6 +149,9 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
   const shooterRef = useRef<PlayerId>(0);
   const dragRef = useRef<Drag | null>(null);
   const shownFlickRef = useRef<Flick | null>(null);
+  // Online: the opponent's aim as they pull back, and when ours was last sent.
+  const remoteAimRef = useRef<Flick | null>(null);
+  const aimSentRef = useRef(0);
   const hoverRef = useRef(false);
   // Online: the side that did not shoot waits for the shooter's settled state.
   const waitingSyncRef = useRef(false);
@@ -164,6 +181,11 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
   leftRef.current = left;
   // The computer uses only so many super powers a match.
   const aiBoostsRef = useRef(DIFFICULTY[difficulty].boosts);
+  // Every player gets one free super power a match, any one they like.
+  const [free, setFree] = useState<[boolean, boolean]>([bags[0] !== null, bags[1] !== null]);
+  const freeRef = useRef(free);
+  freeRef.current = free;
+  const [powersOpen, setPowersOpen] = useState(readPowersOpen);
   const [boostMsg, setBoostMsg] = useState<string | null>(null);
   const spendRef = useRef(onSpendBoost);
   spendRef.current = onSpendBoost;
@@ -234,6 +256,11 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
         setBoostMsg(problem);
         return;
       }
+      const bag = leftRef.current[s.turn];
+      if (bag && !freeRef.current[s.turn] && (bag[id] ?? 0) <= 0) {
+        setBoostMsg(`You have no ${boostOf(id).name} left, and this match's free power is used. Buy more in the store.`);
+        return;
+      }
       sounds.unlock();
       commit(armBoost(s, s.turn, id));
       setBoostMsg(null);
@@ -256,7 +283,13 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
         sceneRef.current?.armBoost(remoteBoost, s.pens[s.turn]);
       }
       const used = s.boostThisTurn;
-      if (used && !remoteBoost) {
+      if (used && !remoteBoost && freeRef.current[s.turn]) {
+        // The match's free power goes first; bought ones are kept for later.
+        const next: [boolean, boolean] = [...freeRef.current];
+        next[s.turn] = false;
+        freeRef.current = next;
+        setFree(next);
+      } else if (used && !remoteBoost) {
         const bag = leftRef.current[s.turn];
         if (bag) {
           const next: [BoostBag | null, BoostBag | null] = [...leftRef.current];
@@ -266,7 +299,9 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
         }
         spendRef.current?.(s.turn, used);
       }
-      world.load(s.pens);
+      // A clean world each shot, so both online players' browsers play it out identically.
+      remoteAimRef.current = null;
+      world.restart(s.pens);
       world.setMods(shotMods(s, s.turn), s.turn);
       world.flick(s.turn, flick);
       shooterRef.current = s.turn;
@@ -388,7 +423,7 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
       buzz(60);
     };
     // Handle for poking at the scene from the browser console while developing.
-    if (import.meta.env.DEV) Object.assign(window, { __penfight: { scene, state: stateRef, sounds, commit, shoot, toggleBoost } });
+    if (import.meta.env.DEV) Object.assign(window, { __penfight: { scene, state: stateRef, sounds, commit, shoot, toggleBoost, remoteAim: remoteAimRef } });
     worldRef.current = world;
     sceneRef.current = scene;
     sounds.startChatter(room.theme.noise);
@@ -451,13 +486,17 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
       const drag = dragRef.current;
       const pen = cur.pens[cur.turn];
       let aim: Aim | null = null;
-      if (drag) {
+      // An online opponent's aim arrives a few times a second; it eases the same way.
+      const remote = !drag && cur.phase === 'aim' ? remoteAimRef.current : null;
+      if (drag || remote) {
         // The shown aim eases after the pointer, so it glides instead of jittering.
-        const target = flickFromPull(drag, maxPull(canvas));
-        const shown = shownFlickRef.current ? easeFlick(shownFlickRef.current, target, 1 - Math.exp(-dt * AIM_EASE)) : target;
+        const target = drag ? flickFromPull(drag, maxPull(canvas)) : remote!;
+        const ease = drag ? AIM_EASE : AIM_EASE / 3;
+        const shown = shownFlickRef.current ? easeFlick(shownFlickRef.current, target, 1 - Math.exp(-dt * ease)) : target;
         shownFlickRef.current = shown;
         // Only the direction is shown; the dashes turn red at a full stretch.
-        aim = { pen, flick: shown, pointer: drag.currentDesk, full: pullPower(drag, maxPull(canvas)) >= 1 };
+        const full = drag ? pullPower(drag, maxPull(canvas)) >= 1 : Math.hypot(target.ix, target.iy) >= MAX_IMPULSE * 0.999;
+        aim = { pen, flick: shown, pointer: drag ? drag.currentDesk : null, full };
       } else {
         shownFlickRef.current = null;
       }
@@ -546,6 +585,7 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
     if (!online) return;
     return online.client.subscribe((msg) => {
       if (msg.t === 'shot') shoot(msg.flick, false, isBoostId(msg.boost) ? msg.boost : null);
+      else if (msg.t === 'aim') remoteAimRef.current = msg.flick;
       else if (msg.t === 'next') advance(false);
       else if (msg.t === 'peer-left') {
         setPeerLeft(true);
@@ -575,7 +615,17 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
   const hitOnScreen = (e: React.PointerEvent, p: PlayerId) =>
     sceneRef.current?.screenHit(stateRef.current.pens[p], e.clientX, e.clientY) ?? null;
 
+  /** Online: tells the opponent where we're aiming, at most every `AIM_SEND_MS`. */
+  const sendAim = (flick: Flick | null) => {
+    if (!online) return;
+    const now = performance.now();
+    if (flick && now - aimSentRef.current < AIM_SEND_MS) return;
+    aimSentRef.current = flick ? now : 0;
+    void online.client.send({ t: 'aim', flick });
+  };
+
   const endDrag = (canvas: HTMLCanvasElement) => {
+    if (dragRef.current) sendAim(null);
     dragRef.current = null;
     canvas.style.cursor = 'default';
   };
@@ -608,6 +658,7 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
       drag.currentScreen = { x: latest.clientX, y: latest.clientY };
       const p = sceneRef.current?.pick(latest.clientX, latest.clientY);
       if (p) drag.currentDesk = p;
+      if (pullPixels(drag) >= MIN_PULL_PX) sendAim(flickFromPull(drag, maxPull(e.currentTarget)));
       return;
     }
     // Hover: show what the pointer can do here.
@@ -647,10 +698,20 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
   else if (!isHuman(hud.turn)) status = `${names[hud.turn]} is aiming…`;
   else status = 'Press on your pen, pull back and let go.';
   const note = boostNote(hud, (p) => you(p));
-  // The power bar: the super powers the player on turn has, while they aim.
+  // The powers panel: every super power, for the player on turn while they aim.
   const bag = left[hud.turn];
   const barOpen = !busy && hud.phase === 'aim' && isHuman(hud.turn) && !peerLeft && bag !== null;
-  const owned = barOpen ? BOOSTS.filter((b) => (bag![b.id] ?? 0) > 0 || hud.boostThisTurn === b.id) : [];
+  const freeNow = free[hud.turn];
+  const togglePowers = () => {
+    const open = !powersOpen;
+    setPowersOpen(open);
+    setBoostMsg(null);
+    try {
+      localStorage.setItem(POWERS_OPEN_KEY, open ? '1' : '0');
+    } catch {
+      // Remembering is only a convenience.
+    }
+  };
 
   const winner = hud.phase === 'matchOver' ? matchWinner(hud) : hud.roundWinner;
   const loser = winner === null ? null : other(winner);
@@ -725,35 +786,56 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
         />
 
         {barOpen && (
-          <div className="power-bar" role="toolbar" aria-label="Super powers">
-            {owned.length === 0 ? (
-              <span className="power-empty">{staked ? 'No super powers. Buy some in the store.' : 'All super powers used this match.'}</span>
-            ) : (
-              owned.map((b) => {
-                const armed = hud.boostThisTurn === b.id;
-                return (
-                  <button
-                    key={b.id}
-                    type="button"
-                    className={`power-btn${armed ? ' is-armed' : ''}`}
-                    style={{ '--boost': b.color } as React.CSSProperties}
-                    aria-pressed={armed}
-                    title={`${b.name}: ${b.tagline}`}
-                    onClick={() => toggleBoost(b.id)}
-                  >
-                    <BoostIcon id={b.id} />
-                    {armed && <span className="power-name">{b.name}</span>}
-                    <span className="visually-hidden">{armed ? '' : b.name}</span>
-                    <span className="power-count">{armed ? 'On' : `×${bag![b.id] ?? 0}`}</span>
-                  </button>
-                );
-              })
+          <div className="powers">
+            {powersOpen && (
+              <div id="power-panel" className="power-bar" role="toolbar" aria-label="Super powers">
+                <p className="power-head">
+                  {hud.boostThisTurn
+                    ? `${boostOf(hud.boostThisTurn).name} is on for this turn. Tap it again to take it back.`
+                    : freeNow
+                      ? 'Free power: pick any one this match.'
+                      : 'Free power used. Your own powers are below.'}
+                </p>
+                {BOOSTS.map((b) => {
+                  const armed = hud.boostThisTurn === b.id;
+                  const have = bag![b.id] ?? 0;
+                  const label = armed ? 'On' : freeNow ? 'Free' : have > 0 ? `×${have}` : 'None';
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      className={`power-btn${armed ? ' is-armed' : ''}${!armed && !freeNow && have === 0 ? ' is-empty' : ''}`}
+                      style={{ '--boost': b.color } as React.CSSProperties}
+                      aria-pressed={armed}
+                      title={`${b.name}: ${b.tagline}`}
+                      onClick={() => toggleBoost(b.id)}
+                    >
+                      <BoostIcon id={b.id} />
+                      {armed && <span className="power-name">{b.name}</span>}
+                      <span className="visually-hidden">{armed ? '' : b.name}</span>
+                      <span className="power-count">{label}</span>
+                    </button>
+                  );
+                })}
+                {boostMsg && (
+                  <span className="power-msg" role="alert">
+                    {boostMsg}
+                  </span>
+                )}
+              </div>
             )}
-            {boostMsg && (
-              <span className="power-msg" role="alert">
-                {boostMsg}
-              </span>
-            )}
+            <button
+              type="button"
+              className={`powers-toggle${powersOpen ? ' is-open' : ''}`}
+              aria-expanded={powersOpen}
+              aria-controls="power-panel"
+              title={powersOpen ? 'Hide super powers' : 'Show super powers'}
+              onClick={togglePowers}
+            >
+              <BoostIcon id="lightning" />
+              <span className="visually-hidden">{powersOpen ? 'Hide super powers' : 'Show super powers'}</span>
+              {freeNow && !powersOpen && <span className="powers-badge">Free</span>}
+            </button>
           </div>
         )}
 

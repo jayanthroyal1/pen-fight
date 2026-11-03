@@ -13,8 +13,8 @@ export type PrizeKind = 'take' | 'swap' | 'break' | 'return';
 
 /**
  * Messages between a browser and the relay server (`server/relay.js`).
- * The server only pairs players in a bet room and forwards `shot`, `sync`,
- * `next` and `prize`. The shooter's browser is the authority for how its shot
+ * The server only pairs players in a bet room and forwards `shot`, `aim`,
+ * `sync`, `next` and `prize`. The shooter's browser is the authority for how its shot
  * ended: it sends `sync` with the settled, resolved state and the other side
  * adopts it. Each browser settles its own player's wallet at the end.
  */
@@ -27,6 +27,8 @@ export type ClientMsg =
   | { t: 'cancel' }
   /** A flick, with the super power the shooter armed for it, if any. */
   | { t: 'shot'; flick: Flick; boost?: BoostId | null }
+  /** Where the shooter is aiming right now, a few times a second; null when they let go of the pen. */
+  | { t: 'aim'; flick: Flick | null }
   | { t: 'sync'; state: GameState }
   | { t: 'next' }
   /** The match winner's decision about the loser's pen. */
@@ -40,6 +42,7 @@ export type ServerMsg =
   | { t: 'start'; you: PlayerId; room: RoomId; players: [Seat, Seat] }
   | { t: 'error'; message: string }
   | { t: 'shot'; flick: Flick; boost?: BoostId | null }
+  | { t: 'aim'; flick: Flick | null }
   | { t: 'sync'; state: GameState }
   | { t: 'next' }
   | { t: 'prize'; kind: PrizeKind }

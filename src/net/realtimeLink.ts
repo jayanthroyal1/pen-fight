@@ -40,7 +40,7 @@ export interface Realtime {
 
 // No I or O, so codes are easy to read aloud (same as the relay's).
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-const RELAYED = new Set(['shot', 'sync', 'next', 'prize']);
+const RELAYED = new Set(['shot', 'aim', 'sync', 'next', 'prize']);
 /** How long to wait for a channel to say who's already there. */
 const SETTLE_MS = 1200;
 

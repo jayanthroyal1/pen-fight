@@ -108,6 +108,8 @@ describe('rooms over realtime channels', () => {
     const shot = await b.next('shot');
     expect(shot.flick).toEqual({ along: 0, ix: 1, iy: 2 });
     expect(shot.boost).toBe('ice');
+    await a.link.send({ t: 'aim', flick: { along: 5, ix: -300, iy: 20 } });
+    expect((await b.next('aim')).flick).toEqual({ along: 5, ix: -300, iy: 20 });
     await b.link.send({ t: 'prize', kind: 'break' });
     expect(await a.next('prize')).toEqual({ t: 'prize', kind: 'break' });
 

@@ -105,3 +105,24 @@ describe('DeskWorld', () => {
     world.free();
   });
 });
+
+describe('the same shot on two devices', () => {
+  it('plays out identically after a restart, whatever came before', () => {
+    const start = pair(createPen(0, 560, 250, 1.4), createPen(1, 300, 240, 1.7));
+    // One device played an earlier shot and kept its world; the other starts fresh.
+    const a = new DeskWorld(start, true);
+    a.flick(0, { along: 30, ix: -700, iy: 40 });
+    a.settle();
+    const synced = a.read();
+    const b = new DeskWorld(synced, true);
+    a.restart(synced);
+    b.restart(synced);
+    for (const w of [a, b]) {
+      w.flick(1, { along: -20, ix: 900, iy: -60 });
+      w.settle();
+    }
+    expect(a.read()).toEqual(b.read());
+    a.free();
+    b.free();
+  });
+});
