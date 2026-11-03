@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { penModel } from '../game/pens';
 import { power as powerOf } from '../game/powers';
-import type { Room } from '../game/rooms';
+import { room as roomById, type Room } from '../game/rooms';
 import type { PlayerId } from '../game/types';
 import { OnlineClient } from '../net/client';
-import { inviteLink, isRoomCode } from '../net/invite';
+import { inviteLink } from '../net/invite';
+import { readInvite, shareTargets } from '../net/share';
 import type { ClientMsg, Seat } from '../net/protocol';
 import { Rupees } from './PenBox';
 
@@ -31,7 +32,7 @@ export function OnlineLobby({ room, seat, joinCode, onStart, onBack }: Props) {
   const [lobby, setLobby] = useState<LobbyState>(joinCode ? { kind: 'connecting', doing: 'join' } : { kind: 'idle' });
   const [code, setCode] = useState(joinCode ?? '');
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'link' | 'code' | null>(null);
   const clientRef = useRef<OnlineClient | null>(null);
   const startedRef = useRef(false);
 
@@ -60,7 +61,7 @@ export function OnlineLobby({ room, seat, joinCode, onStart, onBack }: Props) {
   const run = async (ask: Ask) => {
     const msg = { ...ask, room: room.id, ...seat } as ClientMsg & { t: Ask['t'] };
     setError(null);
-    setCopied(false);
+    setCopied(null);
     setLobby({ kind: 'connecting', doing: msg.t });
     try {
       await connect().send(msg);
@@ -94,36 +95,46 @@ export function OnlineLobby({ room, seat, joinCode, onStart, onBack }: Props) {
     [],
   );
 
-  const onJoin = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = code.trim().toUpperCase();
-    if (!isRoomCode(trimmed)) {
-      setError('Room codes are 4 letters, like QWER. Check the code with your friend.');
+  /** Joins the room in what was typed or pasted; says what's wrong if it can't. */
+  const join = (text: string) => {
+    const invite = readInvite(text);
+    if (!invite) {
+      setError('Room codes are 4 letters, like QWER. Type the code or paste the invite your friend sent.');
       return;
     }
-    void run({ t: 'join', code: trimmed });
+    if (invite.room && invite.room !== room.id) {
+      const other = roomById(invite.room);
+      setError(`That invite is for the ₹${other.bet} ${other.name} room. Go back, pick that bet, then join.`);
+      return;
+    }
+    setCode(invite.code);
+    void run({ t: 'join', code: invite.code });
+  };
+
+  const onJoin = (e: React.FormEvent) => {
+    e.preventDefault();
+    join(code);
   };
 
   const link = lobby.kind === 'waiting' ? inviteLink({ code: lobby.code, room: room.id }) : '';
 
+  const message = `Pen fight me for ₹${room.bet}! Tap to join my room ${lobby.kind === 'waiting' ? lobby.code : ''}:`;
+
+  /** The phone's own share sheet: every messaging app installed. */
   const share = async () => {
     try {
-      await navigator.share({
-        title: 'Pen Fight',
-        text: `Pen fight me for ₹${room.bet}! Room ${lobby.kind === 'waiting' ? lobby.code : ''}`,
-        url: link,
-      });
+      await navigator.share({ title: 'Pen Fight', text: message, url: link });
     } catch {
       // Closing the share sheet is not an error worth showing.
     }
   };
 
-  const copy = async () => {
+  const copy = async (what: 'link' | 'code', text: string) => {
     try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
+      await navigator.clipboard.writeText(text);
+      setCopied(what);
     } catch {
-      setError('Couldn’t copy the link. Select it and copy it yourself.');
+      setError(`Couldn’t copy the ${what}. Select it and copy it yourself.`);
     }
   };
 
@@ -140,27 +151,46 @@ export function OnlineLobby({ room, seat, joinCode, onStart, onBack }: Props) {
       </header>
 
       {lobby.kind === 'waiting' && (
-        <section className="lobby-wait" aria-live="polite">
+        <section className="lobby-wait">
           <h2>Invite your friend</h2>
-          <p className="muted">Send them this link. It opens the game and puts them in your room.</p>
+          <div className="code-card">
+            <span className="code-label">Room code</span>
+            <span className="room-code" aria-label={`Room code ${lobby.code.split('').join(' ')}`}>
+              {lobby.code}
+            </span>
+            <button type="button" className="btn btn-secondary btn-small" onClick={() => void copy('code', lobby.code)}>
+              {copied === 'code' ? 'Code copied' : 'Copy code'}
+            </button>
+          </div>
+          <p className="muted">Your friend types this code under “Got a code?”, or taps the link you send.</p>
+
+          <h3 className="share-title">Send the link</h3>
+          <ul className="share-grid">
+            {shareTargets(message, link).map((t) => (
+              <li key={t.id}>
+                <a className={`share-btn share-${t.id}`} href={t.href} target="_blank" rel="noopener noreferrer">
+                  Send on {t.label}
+                </a>
+              </li>
+            ))}
+            {canShare && (
+              <li>
+                <button type="button" className="share-btn share-more" onClick={() => void share()}>
+                  More apps…
+                </button>
+              </li>
+            )}
+          </ul>
           <label className="field">
             <span>Invite link</span>
             <input className="invite-link" value={link} readOnly onFocus={(e) => e.currentTarget.select()} />
           </label>
-          <div className="lobby-actions">
-            {canShare && (
-              <button type="button" className="btn btn-primary" onClick={() => void share()}>
-                Share invite
-              </button>
-            )}
-            <button type="button" className={canShare ? 'btn btn-secondary' : 'btn btn-primary'} onClick={() => void copy()}>
-              {copied ? 'Link copied' : 'Copy link'}
-            </button>
-          </div>
-          <p className="muted">
-            Or tell them the room code: <span className="room-code-inline">{lobby.code}</span>
+          <button type="button" className="btn btn-secondary" onClick={() => void copy('link', link)}>
+            {copied === 'link' ? 'Link copied' : 'Copy link'}
+          </button>
+          <p className="waiting" aria-live="polite">
+            Waiting for your friend to join…
           </p>
-          <p className="waiting">Waiting for them to join…</p>
           <button type="button" className="btn btn-secondary" onClick={cancel}>
             Cancel
           </button>
@@ -206,14 +236,16 @@ export function OnlineLobby({ room, seat, joinCode, onStart, onBack }: Props) {
             <form className="lobby-panel" onSubmit={onJoin}>
               <h2>Got a code?</h2>
               <label className="field">
-                <span>Room code</span>
+                <span>Room code or invite link</span>
                 <input
                   value={code}
                   onChange={(e) => {
-                    setCode(e.target.value.toUpperCase());
+                    const value = e.target.value;
+                    setCode(value.includes('room=') ? value : value.toUpperCase());
                     setError(null);
+                    // A complete code or a pasted invite joins straight away.
+                    if (!busy && readInvite(value)) join(value);
                   }}
-                  maxLength={4}
                   autoComplete="off"
                   autoCapitalize="characters"
                   spellCheck={false}
@@ -228,6 +260,12 @@ export function OnlineLobby({ room, seat, joinCode, onStart, onBack }: Props) {
         </>
       )}
 
+      {lobby.kind === 'connecting' && !joinCode && (
+        <p className="waiting" aria-live="polite">
+          Connecting to the game server…
+        </p>
+      )}
+
       {error && (
         <p className="error" role="alert">
           {error}
@@ -235,7 +273,7 @@ export function OnlineLobby({ room, seat, joinCode, onStart, onBack }: Props) {
       )}
 
       <button type="button" className="btn btn-secondary" onClick={onBack}>
-        Back to menu
+        Go to menu
       </button>
     </main>
   );

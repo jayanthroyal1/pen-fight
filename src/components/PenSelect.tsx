@@ -33,6 +33,7 @@ export function PenSelect({ title, hint, profile, room, askDifficulty, confirmLa
   const allowed = room ? eligiblePens(profile, room) : profile.pens;
   const [selected, setSelected] = useState<string | null>(allowed[0]?.uid ?? null);
   const [difficulty, setDifficulty] = useState<Difficulty>(savedDifficulty);
+  const [error, setError] = useState<string | null>(null);
   const pen = profile.pens.find((p) => p.uid === selected) ?? null;
 
   return (
@@ -46,7 +47,10 @@ export function PenSelect({ title, hint, profile, room, askDifficulty, confirmLa
         className="picker-form"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!pen) return;
+          if (!pen) {
+            setError(room ? `Pick a level ${room.minLevel}+ pen from your pencil box.` : 'Pick a pen from your pencil box.');
+            return;
+          }
           try {
             localStorage.setItem(DIFFICULTY_KEY, difficulty);
           } catch {
@@ -58,7 +62,10 @@ export function PenSelect({ title, hint, profile, room, askDifficulty, confirmLa
         <PenBox
           pens={profile.pens}
           selected={selected}
-          onSelect={setSelected}
+          onSelect={(uid) => {
+            setSelected(uid);
+            setError(null);
+          }}
           label={`${profile.name}'s pencil box`}
           limit={boxLimit(profile)}
           disabled={(p) => (room && penLevel(p) < room.minLevel ? `Needs level ${room.minLevel}+` : null)}
@@ -83,12 +90,17 @@ export function PenSelect({ title, hint, profile, room, askDifficulty, confirmLa
           </fieldset>
         )}
 
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
         <div className="picker-actions">
-          <button type="submit" className="btn btn-primary" disabled={!pen}>
+          <button type="submit" className="btn btn-primary">
             {confirmLabel}
           </button>
           <button type="button" className="btn btn-secondary" onClick={onBack}>
-            Back
+            Go back
           </button>
         </div>
       </form>

@@ -1,11 +1,16 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { buildClassroom, type ChalkScore, type Classroom } from './classroom';
 import { Fx } from './fx';
 import { buildPen, type PenRig } from './penMesh';
 import { DESK, FALL_DEPTH, HALF_SEG, MAX_IMPULSE, PEN_HALF_HEIGHT, PEN_LENGTH, flatRotation, pointOnPen } from './physics';
 import { PLAYER_COLORS } from './players';
 import { power as powerOf, type EntryStyle, type PowerId } from './powers';
+import type { ResolvedQuality } from './quality';
 import type { RoomTheme } from './rooms';
 import type { Flick, Loadout, Pen, PlayerId, Vec } from './types';
 import { UNITS } from './world';
@@ -96,6 +101,15 @@ export class DeskScene {
   private classroom: Classroom;
   private fx = new Fx();
   private pens: PenRig[] = [];
+  /** A soft shadow on the desk under each pen, darker the closer the pen is. */
+  private contacts: THREE.Mesh[] = [];
+  /** High quality: render through a composer that adds ambient occlusion. */
+  private composer: EffectComposer | null = null;
+  private gtao: GTAOPass | null = null;
+  private pixelRatio = 1;
+  /** Smoothed frame time (ms), to step quality down if the device struggles. */
+  private frameMs = 16;
+  private slowFrames = 0;
   private loadouts: [Loadout, Loadout] | null = null;
   private glow: THREE.Mesh;
   private aimDashes: THREE.InstancedMesh;
@@ -115,9 +129,13 @@ export class DeskScene {
     private canvas: HTMLCanvasElement,
     theme: RoomTheme,
     private viewer: PlayerId = 0,
+    quality: ResolvedQuality = 'high',
   ) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const high = quality === 'high';
+    // With a composer, multisampling happens in its render target instead.
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: !high, powerPreference: 'high-performance' });
+    this.pixelRatio = Math.min(window.devicePixelRatio || 1, high ? 2 : 1.25);
+    this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -176,6 +194,31 @@ export class DeskScene {
     this.finger = buildFinger();
     this.finger.group.visible = false;
     this.scene.add(this.finger.group);
+
+    if (high) {
+      // Multisampled HDR target, then ambient occlusion: soft darkening where pens meet the desk
+      // and in the creases between parts, which is most of what makes small objects look real.
+      const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+      this.composer = new EffectComposer(this.renderer, target);
+      this.composer.addPass(new RenderPass(this.scene, this.camera));
+      this.gtao = new GTAOPass(this.scene, this.camera, 1, 1);
+      this.gtao.blendIntensity = 0.9;
+      this.gtao.updateGtaoMaterial({ radius: 0.28, distanceExponent: 1.4, thickness: 1, scale: 1.1, samples: 12 });
+      this.gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
+      this.composer.addPass(this.gtao);
+      this.composer.addPass(new OutputPass());
+      // See-through overlays (light beams, glows, the aim line, contact shadows) aren't
+      // solid, so hide them while occlusion is worked out or they darken the desk.
+      const gtao = this.gtao;
+      const renderAo = gtao.render.bind(gtao);
+      gtao.render = (...args: Parameters<GTAOPass['render']>) => {
+        const overlays = this.overlays();
+        const shown = overlays.map((o) => o.visible);
+        overlays.forEach((o) => (o.visible = false));
+        renderAo(...args);
+        overlays.forEach((o, i) => (o.visible = shown[i]));
+      };
+    }
   }
 
   setLoadouts(loadouts: [Loadout, Loadout]): void {
@@ -185,10 +228,22 @@ export class DeskScene {
     if (same) return;
     this.loadouts = loadouts;
     for (const p of this.pens) this.scene.remove(p.group);
+    for (const c of this.contacts) this.scene.remove(c);
     this.pens = loadouts.map((l, i) => {
       const rig = buildPen(l.model, l.power, { marker: PLAYER_COLORS[i as PlayerId] });
       this.scene.add(rig.group);
       return rig;
+    });
+    this.contacts = this.pens.map(() => {
+      const geo = new THREE.PlaneGeometry(L * 1.08, 0.2);
+      geo.rotateX(-Math.PI / 2);
+      const mesh = new THREE.Mesh(
+        geo,
+        new THREE.MeshBasicMaterial({ map: contactTexture(), transparent: true, depthWrite: false, color: '#000000' }),
+      );
+      mesh.renderOrder = 1;
+      this.scene.add(mesh);
+      return mesh;
     });
   }
 
@@ -200,6 +255,8 @@ export class DeskScene {
   resize(width: number, height: number): void {
     if (width === 0 || height === 0) return;
     this.renderer.setSize(width, height, false);
+    this.composer?.setPixelRatio(this.pixelRatio);
+    this.composer?.setSize(width, height);
     const aspect = width / height;
     const cam = this.camera;
     cam.aspect = aspect;
@@ -428,7 +485,52 @@ export class DeskScene {
     } else {
       this.camera.position.copy(this.cameraBase);
     }
-    this.renderer.render(this.scene, this.camera);
+    this.placeContacts();
+    if (this.composer) this.composer.render();
+    else this.renderer.render(this.scene, this.camera);
+    this.adapt(dt);
+  }
+
+  /** Everything drawn see-through on top of the scene. */
+  private overlays(): THREE.Object3D[] {
+    return [this.fx.group, this.glow, this.aimDashes, this.aimRing, this.band, ...this.contacts];
+  }
+
+  /** Keeps each pen's contact shadow under it, fading as the pen lifts or falls. */
+  private placeContacts(): void {
+    const fwd = new THREE.Vector3();
+    this.pens.forEach((rig, i) => {
+      const c = this.contacts[i];
+      if (!c) return;
+      const p = rig.group.position;
+      fwd.set(1, 0, 0).applyQuaternion(rig.group.quaternion);
+      c.position.set(p.x, 0.002, p.z);
+      c.rotation.y = -Math.atan2(fwd.z, fwd.x);
+      const lift = Math.max(0, p.y - R);
+      const mat = c.material as THREE.MeshBasicMaterial;
+      mat.opacity = rig.group.visible && p.y > -0.05 ? 0.55 * Math.max(0, 1 - lift * 1.6) : 0;
+      c.scale.setScalar(1 + lift * 0.8);
+    });
+  }
+
+  /**
+   * If frames run slow for a few seconds, render at a lower resolution, and as a
+   * last step drop ambient occlusion, so play stays smooth.
+   */
+  private adapt(dt: number): void {
+    if (dt <= 0 || dt > 0.25) return;
+    this.frameMs += (dt * 1000 - this.frameMs) * 0.05;
+    this.slowFrames = this.frameMs > 24 ? this.slowFrames + 1 : 0;
+    if (this.slowFrames < 120) return;
+    this.slowFrames = 0;
+    if (this.pixelRatio > 1) {
+      this.pixelRatio = Math.max(1, this.pixelRatio - 0.25);
+      this.renderer.setPixelRatio(this.pixelRatio);
+      const canvas = this.renderer.domElement;
+      this.resize(canvas.clientWidth, canvas.clientHeight);
+    } else if (this.gtao?.enabled) {
+      this.gtao.enabled = false;
+    }
   }
 
   dispose(): void {
@@ -444,6 +546,8 @@ export class DeskScene {
       }
     });
     this.scene.environment?.dispose();
+    this.composer?.dispose();
+    this.gtao?.dispose();
     this.renderer.dispose();
   }
 
@@ -792,6 +896,32 @@ function buildFinger(): FingerRig {
   knuckle.add(nailMesh);
   group.add(knuckle);
   return { group, knuckle, materials: [skin, nail] };
+}
+
+/** A long soft shadow: dark along the middle, fading to nothing at the edges and ends. */
+function contactTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 64;
+  const g = c.getContext('2d')!;
+  const across = g.createLinearGradient(0, 0, 0, 64);
+  across.addColorStop(0, 'rgba(255,255,255,0)');
+  across.addColorStop(0.5, 'rgba(255,255,255,1)');
+  across.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = across;
+  g.fillRect(0, 0, 256, 64);
+  // Fade the ends.
+  g.globalCompositeOperation = 'destination-in';
+  const along = g.createLinearGradient(0, 0, 256, 0);
+  along.addColorStop(0, 'rgba(0,0,0,0)');
+  along.addColorStop(0.12, 'rgba(0,0,0,1)');
+  along.addColorStop(0.88, 'rgba(0,0,0,1)');
+  along.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = along;
+  g.fillRect(0, 0, 256, 64);
+  const tex = new THREE.CanvasTexture(c);
+  // The shape is used as transparency for a black shadow.
+  return tex;
 }
 
 function radialTexture(): THREE.CanvasTexture {

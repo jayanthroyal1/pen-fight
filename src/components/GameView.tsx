@@ -2,14 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { sounds } from '../audio/sounds';
 import { DIFFICULTY, chooseAiShot, type Difficulty } from '../game/ai';
 import { MIN_PULL_PX, easeFlick, flickFromPull, pullPixels, pullPower, type Drag } from '../game/aiming';
-import { MAX_IMPULSE, pointOnPen } from '../game/physics';
+import { MAX_IMPULSE, interpolatePen, pointOnPen } from '../game/physics';
 import { isMetalPen, penModel } from '../game/pens';
 import { PLAYER_COLORS } from '../game/players';
 import { power as powerOf, type PowerId } from '../game/powers';
+import { resolveQuality } from '../game/quality';
 import type { Room } from '../game/rooms';
 import { WIN_SCORE, isFinalRound, matchWinner, newMatch, nextRound, other, resolveShot } from '../game/rules';
 import { DeskScene, type Aim } from '../game/scene3d';
-import type { Flick, GameState, Loadout, PlayerId } from '../game/types';
+import type { Flick, GameState, Loadout, Pen, PlayerId } from '../game/types';
 import { DT, DeskWorld, type Impact } from '../game/world';
 import type { OnlineClient } from '../net/client';
 import type { PrizeKind } from '../net/protocol';
@@ -99,6 +100,9 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
   const [shout, setShout] = useState<{ text: string; color: string; key: number } | null>(null);
   const [prize, setPrize] = useState<Prize>({ step: 'none' });
   const [dropUid, setDropUid] = useState<string | null>(null);
+  const [swapError, setSwapError] = useState<string | null>(null);
+  const [confirmBreak, setConfirmBreak] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
   const settledRef = useRef(false);
   // The Rapier world and the three.js view; created with the canvas loop below.
   const worldRef = useRef<DeskWorld | null>(null);
@@ -228,7 +232,7 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
   useEffect(() => {
     const canvas = canvasRef.current!;
     const world = new DeskWorld(stateRef.current.pens, true);
-    const scene = new DeskScene(canvas, room.theme, mode === 'online' ? me : 0);
+    const scene = new DeskScene(canvas, room.theme, mode === 'online' ? me : 0, resolveQuality());
     scene.setLoadouts(stateRef.current.loadouts);
     scene.onShout = (text, color, pw) => {
       setShout({ text, color, key: performance.now() });
@@ -246,6 +250,8 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
     let raf = 0;
     let last = performance.now();
     let acc = 0;
+    // The pens one physics step back, for drawing in between steps.
+    let prev: [Pen, Pen] | null = null;
 
     const observer = new ResizeObserver(() => scene.resize(canvas.clientWidth, canvas.clientHeight));
     observer.observe(canvas);
@@ -272,6 +278,7 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
       if (s.phase === 'moving' && !waitingSyncRef.current) {
         acc += dt;
         while (acc >= DT && !world.isSettled()) {
+          prev = world.read();
           world.step();
           const impacts = world.drainImpacts();
           playImpacts(impacts, s);
@@ -284,6 +291,7 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
         if (world.isSettled()) onSettledRef.current();
       } else {
         acc = 0;
+        prev = null;
         sounds.slide(0);
       }
 
@@ -301,7 +309,11 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
       } else {
         shownFlickRef.current = null;
       }
-      scene.render(cur.pens, aim, cur.phase === 'aim' ? cur.turn : null, now / 1000, hoverRef.current);
+      // While pens move, draw them between the last two physics steps for smooth motion.
+      const t = acc / DT;
+      const shown: [Pen, Pen] =
+        prev && cur.phase === 'moving' ? [interpolatePen(prev[0], cur.pens[0], t), interpolatePen(prev[1], cur.pens[1], t)] : cur.pens;
+      scene.render(shown, aim, cur.phase === 'aim' ? cur.turn : null, now / 1000, hoverRef.current);
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -318,6 +330,14 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
     };
     // The scene is built once per match.
   }, []);
+
+  // While a result card is up, the board and bar behind it can't take focus.
+  const overlayOpen =
+    hud.phase === 'roundOver' || hud.phase === 'matchOver' || peerLeft;
+  useEffect(() => {
+    headerRef.current?.toggleAttribute('inert', overlayOpen);
+    canvasRef.current?.toggleAttribute('inert', overlayOpen);
+  }, [overlayOpen]);
 
   // The score, chalked on the bench in front.
   useEffect(() => {
@@ -459,7 +479,7 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
 
   return (
     <main className="game">
-      <header className="game-bar">
+      <header className="game-bar" ref={headerRef}>
         <div className="scoreboard" aria-label="Score">
           {([0, 1] as const).map((p) => (
             <div key={p} className={`score-chip${hud.turn === p && hud.phase === 'aim' ? ' is-turn' : ''}`}>
@@ -499,10 +519,10 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
             />
           </label>
           <button type="button" className="btn btn-secondary btn-small" onClick={toggleSound} aria-pressed={!muted}>
-            {muted ? 'Sound off' : 'Sound on'}
+            {muted ? 'Turn sound on' : 'Mute sound'}
           </button>
           <button type="button" className="btn btn-secondary btn-small" onClick={onExit}>
-            Leave
+            Leave game
           </button>
         </div>
       </header>
@@ -550,7 +570,7 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
                 Score {hud.scores[0]}–{hud.scores[1]}.
               </p>
               <button type="button" className="btn btn-primary" onClick={() => advance(true)} autoFocus>
-                {isFinalRound(hud) ? 'Final round' : 'Next round'}
+                {isFinalRound(hud) ? 'Start final round' : 'Start next round'}
               </button>
             </div>
           </div>
@@ -569,7 +589,7 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
                 Play again
               </button>
               <button type="button" className="btn btn-secondary" onClick={onExit}>
-                Back to menu
+                Go to menu
               </button>
             </div>
           </div>
@@ -607,25 +627,60 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
                     <button type="button" className="btn btn-primary" onClick={() => setPrize({ step: 'choose', swapping: true })}>
                       Swap it for one of mine
                     </button>
-                    <button type="button" className="btn btn-danger" onClick={() => settle('break', true)}>
+                    <button type="button" className="btn btn-danger" onClick={() => setConfirmBreak(true)}>
                       Break it
                     </button>
                     <button type="button" className="btn btn-secondary" onClick={() => settle('return', true)}>
                       Give it back
                     </button>
                   </div>
+                  {confirmBreak && (
+                    <div className="confirm" role="alertdialog" aria-labelledby="break-title" aria-describedby="break-note">
+                      <p id="break-title" className="confirm-title">
+                        Break {you(loser) === 'You' ? 'your' : `${names[loser]}'s`} {penModel(hud.loadouts[loser].model).name}?
+                      </p>
+                      <p id="break-note">It&apos;s gone for good: nobody gets it back.</p>
+                      <button type="button" className="btn btn-secondary" onClick={() => setConfirmBreak(false)} autoFocus>
+                        Keep the pen
+                      </button>
+                      <button type="button" className="btn btn-danger" onClick={() => settle('break', true)}>
+                        Break the pen
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
 
               {prize.step === 'choose' && prize.swapping && boxes[winner] && (
                 <>
-                  <PenBox pens={boxes[winner]!} selected={dropUid} onSelect={setDropUid} label="Throw away which pen?" />
+                  <PenBox
+                    pens={boxes[winner]!}
+                    selected={dropUid}
+                    onSelect={(uid) => {
+                      setDropUid(uid);
+                      setSwapError(null);
+                    }}
+                    label="Throw away which pen?"
+                  />
+                  {swapError && (
+                    <p className="error" role="alert">
+                      {swapError}
+                    </p>
+                  )}
                   <div className="prize-actions">
-                    <button type="button" className="btn btn-primary" disabled={!dropUid} onClick={() => settle('swap', true)}>
-                      Swap
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() =>
+                        dropUid ? settle('swap', true) : setSwapError('Pick the pen to throw away, then swap.')
+                      }
+                    >
+                      {dropUid
+                        ? `Swap out ${penModel(boxes[winner]!.find((p) => p.uid === dropUid)?.model ?? hud.loadouts[winner].model).name}`
+                        : 'Swap pens'}
                     </button>
                     <button type="button" className="btn btn-secondary" onClick={() => setPrize({ step: 'choose', swapping: false })}>
-                      Back
+                      Go back
                     </button>
                   </div>
                 </>
@@ -641,7 +696,7 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
                         : `The pen now belongs to ${you(winner) === 'You' ? 'you' : names[winner]}.`}
                   </p>
                   <button type="button" className="btn btn-primary" onClick={onExit} autoFocus>
-                    Back to menu
+                    Go to menu
                   </button>
                 </>
               )}
@@ -655,7 +710,7 @@ export function GameView({ setup, online, onSettle, onExit }: Props) {
               <h2 id="left-title">Your opponent left</h2>
               <p>The connection to the other player closed{staked && hud.phase !== 'matchOver' ? ', so no bet was settled' : ''}.</p>
               <button type="button" className="btn btn-primary" onClick={onExit} autoFocus>
-                Back to menu
+                Go to menu
               </button>
             </div>
           </div>

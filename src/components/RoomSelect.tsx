@@ -54,7 +54,7 @@ export function RoomSelect({ title, players, onChoose, onBack }: Props) {
       </ul>
 
       <button type="button" className="btn btn-secondary" onClick={onBack}>
-        Back
+        Go back
       </button>
     </main>
   );

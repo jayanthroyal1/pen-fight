@@ -81,3 +81,26 @@ export function flickFromDrag(pen: Pen, press: Vec, current: Vec): Flick {
 export function edgeDistance(pen: Pen): number {
   return Math.min(pen.x, DESK.width - pen.x, pen.y, DESK.height - pen.y);
 }
+
+/**
+ * A pen's pose part way (`t` 0..1) between two physics steps, so drawing at
+ * the screen's refresh rate doesn't show the fixed 60 Hz steps as judder.
+ */
+export function interpolatePen(a: Pen, b: Pen, t: number): Pen {
+  if (t >= 1 || a.out !== b.out) return b;
+  const [ax, ay, az, aw] = a.q;
+  let [bx, by, bz, bw] = b.q;
+  // Take the short way round.
+  if (ax * bx + ay * by + az * bz + aw * bw < 0) [bx, by, bz, bw] = [-bx, -by, -bz, -bw];
+  const q: [number, number, number, number] = [ax + (bx - ax) * t, ay + (by - ay) * t, az + (bz - az) * t, aw + (bw - aw) * t];
+  const n = Math.hypot(...q) || 1;
+  const da = Math.atan2(Math.sin(b.angle - a.angle), Math.cos(b.angle - a.angle));
+  return {
+    ...b,
+    x: a.x + (b.x - a.x) * t,
+    y: a.y + (b.y - a.y) * t,
+    h: a.h + (b.h - a.h) * t,
+    angle: a.angle + da * t,
+    q: [q[0] / n, q[1] / n, q[2] / n, q[3] / n],
+  };
+}

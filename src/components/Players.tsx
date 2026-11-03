@@ -127,7 +127,7 @@ export function Players({ profiles, activeId, firstRun, onCreate, onChoose, onTe
 
       {!firstRun && (
         <button type="button" className="btn btn-secondary" onClick={onBack}>
-          Back
+          Go back
         </button>
       )}
     </main>

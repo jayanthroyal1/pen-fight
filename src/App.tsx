@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { GameView, type MatchSetup } from './components/GameView';
-import { Home } from './components/Home';
+import { Dashboard } from './components/Dashboard';
 import { OnlineLobby } from './components/OnlineLobby';
 import { OpponentSelect } from './components/OpponentSelect';
 import { PenSelect } from './components/PenSelect';
 import { Players } from './components/Players';
 import { RoomSelect } from './components/RoomSelect';
+import { Settings } from './components/Settings';
+import { Splash } from './components/Splash';
 import { Store } from './components/Store';
 import type { Difficulty } from './game/ai';
 import { PEN_MODELS } from './game/pens';
@@ -23,7 +25,9 @@ type Screen =
   | { kind: 'home' }
   | { kind: 'players' }
   | { kind: 'store' }
-  | { kind: 'opponent' }
+  | { kind: 'settings' }
+  /** Same phone: choose the friend; `room` when a level was already picked. */
+  | { kind: 'opponent'; room?: Room }
   | { kind: 'rooms'; mode: 'online' | 'local'; opponentId?: string }
   /** Choosing pens: practice, online (one player), or same phone (each player in turn). */
   | { kind: 'pick'; mode: 'ai' | 'online' | 'local'; room: Room | null; opponentId?: string; first?: OwnedPen; joinCode?: string }
@@ -41,10 +45,20 @@ const computerPen = (): Loadout => {
   return { model: pool[Math.floor(Math.random() * pool.length)].id, power: null };
 };
 
-export function App() {
+/** `physics` resolves once the physics engine has loaded. */
+export function App({ physics }: { physics: Promise<void> }) {
   const profiles = useProfiles();
   const [screen, setScreen] = useState<Screen>({ kind: 'home' });
   const [invite, setInvite] = useState<Invite | null>(openingInvite);
+  // The intro plays every time the app opens, and covers loading the physics engine.
+  const [intro, setIntro] = useState(true);
+  const [engine, setEngine] = useState<'loading' | 'ready' | 'failed'>('loading');
+  useEffect(() => {
+    physics.then(
+      () => setEngine('ready'),
+      () => setEngine('failed'),
+    );
+  }, [physics]);
   const me = profiles.active;
   const home = () => setScreen({ kind: 'home' });
   const byId = (id: string | undefined | null) => profiles.profiles.find((p) => p.id === id) ?? null;
@@ -57,7 +71,25 @@ export function App() {
     setScreen(entryProblem(me, room) ? { kind: 'rooms', mode: 'online' } : { kind: 'pick', mode: 'online', room, joinCode: invite.code });
   }, [invite, me]);
 
-  if (!profiles.ready) return <div className="app" />;
+  if (engine === 'failed') {
+    return (
+      <div className="app">
+        <main className="cover">
+          <p className="error" role="alert">
+            The game couldn&apos;t load its physics engine, so pens can&apos;t move. Reload the page to try again.
+          </p>
+        </main>
+      </div>
+    );
+  }
+
+  if (intro || !profiles.ready || engine !== 'ready') {
+    return (
+      <div className="app">
+        <Splash onDone={() => setIntro(false)} loading={!intro && (engine !== 'ready' || !profiles.ready)} />
+      </div>
+    );
+  }
 
   if (!me || screen.kind === 'players') {
     return (
@@ -79,7 +111,7 @@ export function App() {
             testerEnabled
               ? (name, passcode) => {
                   const user = checkTester(name, passcode);
-                  if (!user) return 'That user name or passcode isn’t right.';
+                  if (!user) return 'That user name and passcode don’t match the test account. Check both and try again.';
                   void profiles.openTester(user).then(home);
                   return null;
                 }
@@ -112,32 +144,60 @@ export function App() {
     switch (screen.kind) {
       case 'home':
         return (
-          <Home
+          <Dashboard
             profile={me}
             notices={profiles.notices}
             onDismissNotices={profiles.dismissNotices}
-            onOnline={() => setScreen({ kind: 'rooms', mode: 'online' })}
-            onLocal={() => setScreen({ kind: 'opponent' })}
-            onPractice={() => setScreen({ kind: 'pick', mode: 'ai', room: null })}
+            onMode={(mode) =>
+              setScreen(
+                mode === 'online'
+                  ? { kind: 'rooms', mode: 'online' }
+                  : mode === 'local'
+                    ? { kind: 'opponent' }
+                    : { kind: 'pick', mode: 'ai', room: null },
+              )
+            }
+            onLevel={(room, mode) =>
+              setScreen(mode === 'online' ? { kind: 'pick', mode: 'online', room } : { kind: 'opponent', room })
+            }
             onStore={() => setScreen({ kind: 'store' })}
+            onSettings={() => setScreen({ kind: 'settings' })}
+          />
+        );
+      case 'settings':
+        return (
+          <Settings
+            key={me.id}
+            profile={me}
+            onRename={(name) => void profiles.save({ ...me, name })}
             onPlayers={() => setScreen({ kind: 'players' })}
+            onBack={home}
           />
         );
       case 'store':
         return <Store profile={me} onSave={(p) => void profiles.save(p)} onBack={home} />;
-      case 'opponent':
+      case 'opponent': {
+        // With a level already picked, go straight to pens if both can afford it.
+        const level = screen.room;
+        const nextAfterOpponent = (id: string): Screen => {
+          const friend = byId(id);
+          return level && friend && !entryProblem(me, level) && !entryProblem(friend, level)
+            ? { kind: 'pick', mode: 'local', room: level, opponentId: id }
+            : { kind: 'rooms', mode: 'local', opponentId: id };
+        };
         return (
           <OpponentSelect
             me={me}
             others={profiles.profiles.filter((p) => p.id !== me.id)}
-            onChoose={(id) => setScreen({ kind: 'rooms', mode: 'local', opponentId: id })}
+            onChoose={(id) => setScreen(nextAfterOpponent(id))}
             onCreate={async (name) => {
               const p = await profiles.create(name);
-              setScreen({ kind: 'rooms', mode: 'local', opponentId: p.id });
+              setScreen(nextAfterOpponent(p.id));
             }}
             onBack={home}
           />
         );
+      }
       case 'rooms': {
         const opponent = byId(screen.opponentId);
         return (
@@ -168,7 +228,7 @@ export function App() {
             room={screen.room}
             askDifficulty={screen.mode === 'ai'}
             confirmLabel={
-              screen.joinCode ? 'Join the fight' : screen.mode === 'local' && !second ? `Next: ${opponent?.name ?? 'friend'}` : 'Fight!'
+              screen.joinCode ? 'Join the fight' : screen.mode === 'local' && !second ? `Pass to ${opponent?.name ?? 'your friend'}` : 'Start fight'
             }
             onConfirm={(pen: OwnedPen, difficulty: Difficulty) => {
               if (screen.mode === 'ai') {

@@ -69,8 +69,7 @@ dd {
 }
 
 .app {
-  max-width: 1000px;
-  margin: 0 auto;
+  width: 100%;
   padding-inline: var(--space-4);
   padding-block: var(--space-6);
 }
@@ -109,14 +108,14 @@ dd {
   outline: 2px solid var(--label);
   outline-offset: -7px;
   border-radius: 12px;
-  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
   transform: rotate(-0.6deg);
 }
 
 .label-title {
   font-family: var(--font-head);
   font-size: 2.4rem;
-  line-height: 1.05;
+  line-height: 1.1;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--ink);
@@ -156,7 +155,7 @@ dd {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-4) var(--space-4) var(--space-4) 52px;
+  padding: var(--space-4) var(--space-4) var(--space-4) 56px;
   color: var(--ink);
   background-color: var(--paper);
   background-image:
@@ -218,7 +217,7 @@ dd {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: transform 100ms ease, background-color 120ms ease;
+  transition: transform 100ms ease-out;
 }
 
 .btn:focus-visible,
@@ -285,7 +284,7 @@ dd {
 }
 
 .btn-small {
-  min-height: 36px;
+  min-height: 44px;
   padding: var(--space-1) var(--space-3);
   font-size: 0.85rem;
 }
@@ -432,7 +431,7 @@ dd {
 .pen-box {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
   margin: 0;
   padding: var(--space-4);
   padding-top: var(--space-3);
@@ -517,7 +516,7 @@ label.pen-slot {
 
 .pen-name {
   font-family: var(--font-head);
-  font-weight: 500;
+  font-weight: 600;
   font-size: 1.02rem;
   letter-spacing: 0.02em;
 }
@@ -530,10 +529,7 @@ label.pen-slot {
 .power-badge {
   display: inline-block;
   margin-left: var(--space-2);
-  padding: 0 6px;
-  color: #3b2412;
-  background: var(--natraj);
-  border-radius: 3px;
+  color: var(--natraj);
   font-family: var(--font-head);
   font-size: 0.75rem;
   letter-spacing: 0.04em;
@@ -930,6 +926,8 @@ label.pen-slot {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  max-width: 1000px;
+  margin: 0 auto;
 }
 
 .game-bar {
@@ -983,7 +981,7 @@ label.pen-slot {
 
 .score-name {
   font-family: var(--font-head);
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
@@ -1140,7 +1138,7 @@ label.pen-slot {
   align-items: stretch;
   gap: var(--space-3);
   width: min(420px, 100%);
-  padding: var(--space-6) var(--space-6) var(--space-6) 60px;
+  padding: var(--space-6) var(--space-6) var(--space-6) 56px;
   transform: rotate(-1deg);
 }
 
@@ -1243,7 +1241,7 @@ label.pen-slot {
   }
 
   .card {
-    padding: var(--space-4) var(--space-4) var(--space-4) 52px;
+    padding: var(--space-4) var(--space-4) var(--space-4) 56px;
   }
 }
 
@@ -1273,5 +1271,592 @@ label.pen-slot {
     animation-duration: 0.01ms;
     animation-iteration-count: 1;
     opacity: 1;
+  }
+}
+
+/* Opening intro: two pens slide in, clash, and the title is stamped down. */
+.splash {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-4);
+  color: var(--cream);
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(255, 190, 120, 0.25), transparent 60%),
+    linear-gradient(180deg, #a85f28 0%, #8a4a1c 100%);
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.splash-desk {
+  position: relative;
+  width: min(520px, 90vw);
+  height: 90px;
+}
+
+.splash-pen {
+  position: absolute;
+  top: 34px;
+  width: 46%;
+  filter: drop-shadow(0 6px 4px rgba(0, 0, 0, 0.45));
+}
+
+.splash-pen .pen-swatch {
+  height: 22px;
+  transform: scale(1.6);
+  transform-origin: center;
+}
+
+.splash-left {
+  left: 0;
+  animation: pen-left 3.4s cubic-bezier(0.3, 0.9, 0.3, 1) forwards;
+}
+
+.splash-right {
+  right: 0;
+  animation: pen-right 3.4s cubic-bezier(0.3, 0.9, 0.3, 1) forwards;
+}
+
+/* The right pen points back at the left one. */
+.splash-right .pen-swatch {
+  transform: scale(1.6) scaleX(-1);
+}
+
+@keyframes pen-left {
+  0% {
+    transform: translateX(-120%) rotate(-8deg);
+  }
+  30% {
+    transform: translateX(6%) rotate(0deg);
+  }
+  36% {
+    transform: translateX(-4%) rotate(-3deg);
+  }
+  100% {
+    transform: translateX(-2%) rotate(-2deg);
+  }
+}
+
+@keyframes pen-right {
+  0% {
+    transform: translateX(120%) rotate(8deg);
+  }
+  30% {
+    transform: translateX(-6%) rotate(0deg);
+  }
+  40% {
+    transform: translateX(30%) translateY(-30px) rotate(40deg);
+  }
+  100% {
+    transform: translateX(26%) translateY(-6px) rotate(18deg);
+  }
+}
+
+.splash-clash {
+  position: absolute;
+  left: 50%;
+  top: 44px;
+}
+
+.spark {
+  position: absolute;
+  width: 4px;
+  height: 18px;
+  margin: -9px 0 0 -2px;
+  background: linear-gradient(#fff6c2, #ffb300);
+  border-radius: 2px;
+  opacity: 0;
+  transform: rotate(var(--a)) translateY(0);
+  animation: spark 3.4s ease-out forwards;
+}
+
+@keyframes spark {
+  0%,
+  29% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateY(0);
+  }
+  31% {
+    opacity: 1;
+  }
+  45%,
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateY(-60px);
+  }
+}
+
+.splash-title {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: clamp(3rem, 14vw, 6.5rem);
+  line-height: 1.1;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--label);
+  -webkit-text-stroke: 3px #3b2412;
+  paint-order: stroke fill;
+  text-shadow: 6px 6px 0 #3b2412;
+  opacity: 0;
+  animation: stamp 3.4s cubic-bezier(0.2, 1.4, 0.4, 1) forwards;
+}
+
+@keyframes stamp {
+  0%,
+  38% {
+    opacity: 0;
+    transform: scale(2.4) rotate(-6deg);
+  }
+  50%,
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(-3deg);
+  }
+}
+
+.splash-tag {
+  font-size: 1.3rem;
+  opacity: 0;
+  animation: fade-in 3.4s ease forwards;
+}
+
+.splash-skip {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+  font-family: var(--font-type);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  opacity: 0;
+  animation: fade-in 3.4s ease forwards;
+}
+
+@keyframes fade-in {
+  0%,
+  55% {
+    opacity: 0;
+  }
+  70%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Dashboard */
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.dash-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.dash-title {
+  flex: 1;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: clamp(2rem, 8vw, 3rem);
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--label);
+  -webkit-text-stroke: 2px #3b2412;
+  paint-order: stroke fill;
+  text-shadow: 4px 4px 0 #3b2412;
+  transform: rotate(-2deg);
+}
+
+.dash-player {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+}
+
+.dash-name {
+  font-size: 1.15rem;
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  color: var(--kraft-ink);
+  background: var(--label);
+  border: 2px solid var(--label-line);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.icon-btn {
+  position: relative;
+}
+
+.icon-btn:hover {
+  color: var(--stamp-red);
+}
+
+.tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  padding: var(--space-1) var(--space-2);
+  color: var(--label);
+  background: #1e1a16;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  font-family: var(--font-hand);
+  font-size: 0.875rem;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+  z-index: 2;
+}
+
+.icon-btn:hover .tooltip,
+.icon-btn:focus-visible .tooltip {
+  opacity: 1;
+}
+
+.icon-btn:focus-visible {
+  outline: 3px solid var(--natraj);
+  outline-offset: 3px;
+}
+
+.dash-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Section headings: a strip of masking tape. */
+.section-tab {
+  align-self: flex-start;
+  padding: 2px var(--space-4);
+  color: var(--kraft-ink);
+  background: rgba(241, 226, 180, 0.92);
+  font-family: var(--font-type);
+  font-size: 1rem;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  transform: rotate(-1.5deg);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mode-card,
+.store-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  width: 100%;
+  height: 100%;
+  min-height: 110px;
+  padding: var(--space-4);
+  color: var(--kraft-ink);
+  background-color: var(--kraft);
+  background-image: linear-gradient(115deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 35%);
+  border: 1px solid rgba(59, 36, 18, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 100ms ease;
+}
+
+.mode-card:hover,
+.store-card:hover {
+  transform: translateY(-2px) rotate(-0.5deg);
+}
+
+.mode-card:focus-visible,
+.store-card:focus-visible,
+.room-main:focus-visible {
+  outline: 3px solid var(--natraj);
+  outline-offset: 3px;
+}
+
+.mode-online {
+  border-top: 8px solid var(--stamp-red);
+}
+
+.mode-local {
+  border-top: 8px solid var(--stamp-blue);
+}
+
+.mode-ai {
+  border-top: 8px solid #1d6b2f;
+}
+
+.mode-title {
+  font-family: var(--font-head);
+  font-size: 1.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.mode-note {
+  font-size: 0.98rem;
+}
+
+.store-pens {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(240px, 100%);
+  margin-bottom: var(--space-2);
+}
+
+/* Level cards hold a button plus, once opened, the two ways to play. */
+div.room-card {
+  padding: 0;
+  cursor: default;
+}
+
+.room-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-4);
+  color: inherit;
+  background: none;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.room-main:disabled {
+  cursor: not-allowed;
+}
+
+div.room-card.is-locked {
+  opacity: 0.6;
+}
+
+.room-level {
+  font-family: var(--font-type);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  color: var(--pencil);
+}
+
+.room-play {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+.room-play .btn {
+  flex: 1 1 140px;
+}
+
+.dashboard .pen-box {
+  margin-top: var(--space-2);
+}
+
+/* Settings */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.toggle input {
+  width: 24px;
+  height: 24px;
+  accent-color: var(--stamp-red);
+}
+
+.slider {
+  width: 100%;
+  accent-color: var(--stamp-red);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spark {
+    display: none;
+  }
+
+  .splash-left,
+  .splash-right,
+  .splash-title,
+  .splash-tag,
+  .splash-skip {
+    animation: none;
+    opacity: 1;
+  }
+
+  .mode-card,
+  .store-card {
+    transition: none;
+  }
+
+  .mode-card:hover,
+  .store-card:hover,
+  .room-card:hover:not(:disabled),
+  .btn:active:not(:disabled) {
+    transform: none;
+  }
+
+  .tooltip {
+    transition: none;
+  }
+}
+
+/* Asking before something can't be undone. */
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 2px solid var(--stamp-red);
+  border-radius: 6px;
+  background: rgba(179, 38, 30, 0.06);
+}
+
+.confirm-title {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--stamp-red);
+}
+
+/* Four levels as a balanced 2×2 on wider screens. */
+@media (min-width: 700px) {
+  .dashboard .room-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Invite: the room code, big enough to read out across a classroom. */
+.code-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--label);
+  border: 2px dashed var(--stamp-red);
+  border-radius: 8px;
+}
+
+.code-label {
+  width: 100%;
+  font-family: var(--font-type);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  color: var(--pencil);
+}
+
+.code-card .room-code {
+  flex: 1;
+  font-size: clamp(2.4rem, 12vw, 3.5rem);
+  line-height: 1.1;
+}
+
+.share-title {
+  margin: 0;
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 1.05rem;
+  text-transform: uppercase;
+}
+
+.share-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.share-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-2) var(--space-3);
+  color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.03em;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 100ms ease-out;
+}
+
+.share-btn:active {
+  transform: translateY(1px);
+}
+
+.share-btn:focus-visible {
+  outline: 3px solid var(--natraj);
+  outline-offset: 3px;
+}
+
+.share-whatsapp {
+  background: #1f8f4e;
+}
+.share-telegram {
+  background: #1f6fa8;
+}
+.share-sms {
+  background: #4a5563;
+}
+.share-email {
+  background: #8a2b2b;
+}
+.share-facebook {
+  background: #2d4f9a;
+}
+.share-more {
+  color: var(--stamp-blue);
+  background: var(--label);
+  border: 2px solid var(--stamp-blue);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .share-btn {
+    transition: none;
+  }
+
+  .share-btn:active {
+    transform: none;
   }
 }

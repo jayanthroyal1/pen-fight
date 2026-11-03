@@ -32,8 +32,8 @@ class SoundBoard {
   private applauseBuffers: Partial<Record<Win, AudioBuffer>> = {};
   private applausePlaying: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
   private chatterGain: GainNode | null = null;
-  private chatterSrc: AudioBufferSourceNode | null = null;
-  private chatterBuffers = new Map<NoisePreset, Promise<AudioBuffer>>();
+  private chatterSrcs: AudioBufferSourceNode[] = [];
+  private chatterBuffers = new Map<NoisePreset, Promise<AudioBuffer[]>>();
   private wantChatter: NoisePreset | null = null;
   muted = readMuted();
   /** Classroom chatter volume, 0 (off) to 1; set by the player and remembered. */
@@ -104,22 +104,25 @@ class SoundBoard {
       buffer = loadChatter(ctx, noise);
       this.chatterBuffers.set(noise, buffer);
     }
-    void buffer.then((buf) => {
+    void buffer.then((layers) => {
       if (this.wantChatter !== noise || !this.chatterGain) return;
-      this.chatterSrc?.stop();
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.loop = true;
-      src.connect(this.chatterGain);
-      src.start();
-      this.chatterSrc = src;
+      this.chatterSrcs.forEach((s) => s.stop());
+      // Each layer loops on its own; a recording and the synthesised chatter differ in length.
+      this.chatterSrcs = layers.map((buf) => {
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.loop = true;
+        src.connect(this.chatterGain!);
+        src.start(ctx.currentTime, Math.random() * buf.duration);
+        return src;
+      });
     });
   }
 
   stopChatter(): void {
     this.wantChatter = null;
-    this.chatterSrc?.stop();
-    this.chatterSrc = null;
+    this.chatterSrcs.forEach((s) => s.stop());
+    this.chatterSrcs = [];
   }
 
   setChatterVolume(v: number): void {

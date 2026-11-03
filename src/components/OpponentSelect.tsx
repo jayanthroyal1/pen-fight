@@ -13,6 +13,7 @@ interface Props {
 /** Same phone: who is playing against you. Each player bets their own money and pens. */
 export function OpponentSelect({ me, others, onChoose, onCreate, onBack }: Props) {
   const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
   return (
     <main className="cover">
       <header className="name-label">
@@ -42,19 +43,33 @@ export function OpponentSelect({ me, others, onChoose, onCreate, onBack }: Props
         onSubmit={(e) => {
           e.preventDefault();
           if (name.trim()) onCreate(name.trim());
+          else setError('Write your friend\u2019s name to add them.');
         }}
       >
         <label className="field">
           <span>Friend&apos;s name</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={20} placeholder="e.g. Sita" />
+          <input
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              setError(null);
+            }}
+            maxLength={20}
+            placeholder="e.g. Sita"
+          />
         </label>
-        <button type="submit" className="btn btn-primary" disabled={!name.trim()}>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        <button type="submit" className="btn btn-primary">
           Add and play
         </button>
       </form>
 
       <button type="button" className="btn btn-secondary" onClick={onBack}>
-        Back
+        Go back
       </button>
     </main>
   );

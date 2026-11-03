@@ -4,21 +4,11 @@ import { App } from './App';
 import { initPhysics } from './game/world';
 import './styles.css';
 
-const root = createRoot(document.getElementById('root')!);
+// The physics engine loads while the intro plays; the app waits for it before leaving the intro.
+const physics = initPhysics();
 
-initPhysics().then(
-  () =>
-    root.render(
-      <StrictMode>
-        <App />
-      </StrictMode>,
-    ),
-  () =>
-    root.render(
-      <main className="app">
-        <p className="error" role="alert">
-          The game couldn't load its physics engine. Reload the page to try again.
-        </p>
-      </main>,
-    ),
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App physics={physics} />
+  </StrictMode>,
 );

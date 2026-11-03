@@ -68,7 +68,9 @@ export function Store({ profile, onSave, onBack }: Props) {
 
       {tab === 'pens' && (
         <div className="shelves">
-          {full && <p className="muted">Your pencil box is full. Win or lose a pen to make room.</p>}
+          <p id="store-limit" className="muted">
+            {full ? 'Your pencil box is full. Lose or swap a pen to make room.' : 'Pens cost what the tag says. Tap Buy to see if you can afford one.'}
+          </p>
           {([1, 2, 3, 4, 5] as PenLevel[]).map((level) => (
             <section key={level} className="shelf">
               <h2>Level {level}</h2>
@@ -83,7 +85,7 @@ export function Store({ profile, onSave, onBack }: Props) {
                       <button
                         type="button"
                         className="btn btn-secondary btn-small"
-                        disabled={!afford || full}
+                        aria-describedby={!afford || full ? 'store-limit' : undefined}
                         onClick={() => attempt(() => buyPen(profile, m.id), `${m.name} is in your pencil box.`)}
                       >
                         Buy
@@ -117,9 +119,13 @@ export function Store({ profile, onSave, onBack }: Props) {
                 <button
                   type="button"
                   className="btn btn-secondary btn-small"
-                  disabled={profile.rupees < p.price}
                   aria-pressed={power === p.id}
                   onClick={() => {
+                    if (profile.rupees < p.price) {
+                      setPower(null);
+                      setMessage({ text: `${p.name} costs ₹${p.price}. You have ₹${profile.rupees}: win a few matches first.`, ok: false });
+                      return;
+                    }
                     setPower(p.id);
                     setTarget(null);
                     setMessage(null);
@@ -144,10 +150,10 @@ export function Store({ profile, onSave, onBack }: Props) {
               <button
                 type="button"
                 className="btn btn-primary"
-                disabled={!target}
                 onClick={() =>
-                  target &&
-                  attempt(() => buyPower(profile, power, target), `${POWERS.find((p) => p.id === power)!.name} is on your pen.`)
+                  target
+                    ? attempt(() => buyPower(profile, power, target), `${POWERS.find((p) => p.id === power)!.name} is on your pen.`)
+                    : setMessage({ text: 'Pick one of your pens above for the power.', ok: false })
                 }
               >
                 Buy and apply
@@ -158,7 +164,7 @@ export function Store({ profile, onSave, onBack }: Props) {
       )}
 
       <button type="button" className="btn btn-secondary" onClick={onBack}>
-        Back
+        Go back
       </button>
     </main>
   );

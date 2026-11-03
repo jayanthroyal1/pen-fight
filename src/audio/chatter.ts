@@ -42,20 +42,32 @@ const VOWELS: Record<string, [number, number, number]> = {
 const TELUGU_VOWELS = ['a', 'aa', 'a', 'u', 'i', 'e', 'o', 'aa'];
 const ENGLISH_VOWELS = ['a', 'e', 'i', 'o', 'u', 'e', 'i'];
 
-/** Loads a recording for the room if one exists, otherwise renders synthesised chatter. */
-export async function loadChatter(ctx: BaseAudioContext, noise: NoisePreset): Promise<AudioBuffer> {
-  try {
-    const res = await fetch(`${import.meta.env.BASE_URL}audio/class-${noise}.mp3`);
-    if (res.ok && (res.headers.get('content-type') ?? '').includes('audio')) {
-      return await ctx.decodeAudioData(await res.arrayBuffer());
-    }
-  } catch {
-    // No recording: synthesise instead.
-  }
-  return renderChatter(ctx.sampleRate, noise);
+/**
+ * The sounds to loop for a room's chatter. A recording is used when there is
+ * one: `public/audio/class-<noise>.mp3` for that room, or `public/audio/class.mp3`
+ * for every room. Rooms whose children talk Telugu also get synthesised Telugu
+ * chatter mixed under it (a generic recording won't be in Telugu). With no
+ * recording, the chatter is synthesised.
+ */
+export async function loadChatter(ctx: BaseAudioContext, noise: NoisePreset): Promise<AudioBuffer[]> {
+  const recording = (await fetchAudio(ctx, `class-${noise}.mp3`)) ?? (await fetchAudio(ctx, 'class.mp3'));
+  if (!recording) return [await renderChatter(ctx.sampleRate, noise)];
+  return PRESETS[noise].telugu > 0 ? [recording, await renderChatter(ctx.sampleRate, noise, 0.55)] : [recording];
 }
 
-export async function renderChatter(sampleRate: number, noise: NoisePreset): Promise<AudioBuffer> {
+async function fetchAudio(ctx: BaseAudioContext, file: string): Promise<AudioBuffer | null> {
+  try {
+    const res = await fetch(`${import.meta.env.BASE_URL}audio/${file}`);
+    // A dev server answers missing files with the app page, so check it's really audio.
+    if (!res.ok || !(res.headers.get('content-type') ?? '').includes('audio')) return null;
+    return await ctx.decodeAudioData(await res.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+/** Synthesised chatter for a room; `gain` scales it, e.g. when mixed under a recording. */
+export async function renderChatter(sampleRate: number, noise: NoisePreset, gain = 1): Promise<AudioBuffer> {
   const preset = PRESETS[noise];
   const ctx = new OfflineAudioContext(2, Math.ceil(sampleRate * LOOP_SECONDS), sampleRate);
   const noiseBuf = whiteNoise(ctx, 2);
@@ -68,7 +80,7 @@ export async function renderChatter(sampleRate: number, noise: NoisePreset): Pro
   const dry = ctx.createGain();
   dry.gain.value = 0.8;
   const bus = ctx.createGain();
-  bus.gain.value = 0.5 * preset.level;
+  bus.gain.value = 0.5 * preset.level * gain;
   bus.connect(dry).connect(ctx.destination);
   bus.connect(reverb).connect(wet).connect(ctx.destination);
 
