@@ -14,7 +14,7 @@ export type PrizeKind = 'take' | 'swap' | 'break' | 'return';
 /**
  * Messages between a browser and the relay server (`server/relay.js`).
  * The server only pairs players in a bet room and forwards `shot`, `aim`,
- * `sync`, `next` and `prize`. The shooter's browser is the authority for how its shot
+ * `defend`, `sync`, `next` and `prize`. The shooter's browser is the authority for how its shot
  * ended: it sends `sync` with the settled, resolved state and the other side
  * adopts it. Each browser settles its own player's wallet at the end.
  */
@@ -25,8 +25,13 @@ export type ClientMsg =
   | ({ t: 'quick'; room: RoomId } & Seat)
   /** Stop looking for a quick match, or give up a room nobody has joined. */
   | { t: 'cancel' }
-  /** A flick, with the super power the shooter armed for it, if any. */
-  | { t: 'shot'; flick: Flick; boost?: BoostId | null }
+  /**
+   * A flick, with the super power the shooter used for it and the one the
+   * other player used against it (as the shooter saw it), if any.
+   */
+  | { t: 'shot'; flick: Flick; boost?: BoostId | null; defense?: BoostId | null }
+  /** The other player chose (or took back, null) a super power against the shot being aimed. */
+  | { t: 'defend'; id: BoostId | null }
   /** Where the shooter is aiming right now, a few times a second; null when they let go of the pen. */
   | { t: 'aim'; flick: Flick | null }
   | { t: 'sync'; state: GameState }
@@ -41,7 +46,8 @@ export type ServerMsg =
   /** `players` holds both seats, by player number. */
   | { t: 'start'; you: PlayerId; room: RoomId; players: [Seat, Seat] }
   | { t: 'error'; message: string }
-  | { t: 'shot'; flick: Flick; boost?: BoostId | null }
+  | { t: 'shot'; flick: Flick; boost?: BoostId | null; defense?: BoostId | null }
+  | { t: 'defend'; id: BoostId | null }
   | { t: 'aim'; flick: Flick | null }
   | { t: 'sync'; state: GameState }
   | { t: 'next' }

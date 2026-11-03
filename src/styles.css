@@ -1969,6 +1969,14 @@ div.room-card.is-locked {
   border-radius: 10px;
 }
 
+.power-group {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
 .power-head {
   flex-basis: 100%;
   margin: 0;
@@ -2012,18 +2020,6 @@ div.room-card.is-locked {
   outline-offset: 3px;
 }
 
-.powers-badge {
-  position: absolute;
-  top: -8px;
-  right: -10px;
-  padding: 0 6px;
-  color: #1d1712;
-  font-family: var(--font-type);
-  font-size: 0.7rem;
-  line-height: 1.5;
-  background: var(--natraj);
-  border-radius: 999px;
-}
 
 .power-btn {
   --boost: #ffffff;
@@ -2123,22 +2119,29 @@ div.room-card.is-locked {
   }
 
   .power-bar {
-    flex-wrap: nowrap;
-    justify-content: flex-start;
+    flex: 1;
     overflow-x: auto;
   }
 
   .power-head {
-    display: none;
+    flex-basis: auto;
+    flex: none;
+    align-self: center;
+    max-width: 7.5em;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    text-align: left;
   }
 
   .power-btn {
     flex: none;
     gap: var(--space-1);
+    font-size: 0.85rem;
   }
 
-  .power-btn .power-name {
-    display: none;
+  .power-group {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
   }
 
   .power-msg {

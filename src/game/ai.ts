@@ -17,9 +17,10 @@ export const DIFFICULTY: Record<Difficulty, { label: string; samples: number; wo
 const DANGER = 110;
 
 /**
- * Whether the computer arms a super power this turn, and which: defence when
- * its own pen is near an edge, attack when the other pen is, and now and then
- * one for the fun of it.
+ * Whether the computer uses a super power on this shot, and which. On its own
+ * turn it attacks when the other pen is near an edge; while the other player
+ * aims it defends when its own pen is near an edge, or makes the desk slippery
+ * when the shooter is close to one. Now and then it plays one for the fun of it.
  */
 export function chooseAiBoost(state: GameState, me: PlayerId, bag: BoostBag, rng: () => number = Math.random): BoostId | null {
   const has = (id: BoostId) => (bag[id] ?? 0) > 0 && !boostProblem(state, me, id);
@@ -29,9 +30,14 @@ export function chooseAiBoost(state: GameState, me: PlayerId, bag: BoostBag, rng
     const ok = ids.filter(has);
     return ok.length ? ok[Math.floor(rng() * ok.length)] : null;
   };
+  if (state.turn === me) {
+    if (theirs < DANGER && rng() < 0.7) return pickFrom(['lightning', 'strike', 'double']);
+    if (rng() < 0.15) return pickFrom(['strike', 'lightning']);
+    return null;
+  }
   if (mine < DANGER && rng() < 0.7) return pickFrom(['wall', 'grip', 'health']);
-  if (theirs < DANGER && rng() < 0.7) return pickFrom(['lightning', 'strike', 'double']);
-  if (rng() < 0.2) return pickFrom(['ice', 'tilt', 'strike', 'lightning']);
+  if (theirs < DANGER && rng() < 0.5) return pickFrom(['ice', 'tilt']);
+  if (rng() < 0.15) return pickFrom(['ice', 'tilt', 'grip']);
   return null;
 }
 

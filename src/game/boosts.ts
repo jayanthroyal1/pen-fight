@@ -1,14 +1,14 @@
 /**
- * Super powers: one-use boosts bought in the store, separate from the hero
- * powers that live on a pen. On your turn, before you flick, you can arm one.
- * Some help your own shot (Lightning, Power Strike, Double Turn), some protect
- * you during the opponent's next shot (Force Wall, Super Grip), some get in the
- * way of the opponent's next shot (Ice Desk, Uneven Desk), and Health Boost
- * saves your pen once if it goes off the desk this round.
+ * Super powers: one-use boosts, separate from the hero powers that live on a
+ * pen. On your turn, before you flick, you can use one for your shot (Lightning,
+ * Power Strike, Double Turn). While the other player aims, you can use one
+ * against their shot: protect yourself (Force Wall, Super Grip) or get in their
+ * way (Ice Desk, Uneven Desk). Health Boost, any time, saves your pen once if
+ * it goes off the desk this round.
  */
 export type BoostId = 'lightning' | 'health' | 'grip' | 'ice' | 'strike' | 'tilt' | 'wall' | 'double';
 
-/** Whose shot a boost changes: the one you're about to take, or the opponent's next. */
+/** When a boost is used: on your own shot, against the opponent's shot, or either (for the round). */
 export type BoostTiming = 'mine' | 'theirs' | 'round';
 
 export interface Boost {
@@ -46,7 +46,7 @@ export const BOOSTS: Boost[] = [
   {
     id: 'grip',
     name: 'Super Grip',
-    tagline: 'Your pen grips the desk and turns heavy for their next shot.',
+    tagline: 'Your pen grips the desk and turns heavy for their shot.',
     price: 35,
     timing: 'theirs',
     color: '#7ddc6a',
@@ -55,7 +55,7 @@ export const BOOSTS: Boost[] = [
   {
     id: 'ice',
     name: 'Ice Desk',
-    tagline: 'Freezes the desk for their next shot. Everything slides.',
+    tagline: 'Freezes the desk for their shot. Everything slides.',
     price: 45,
     timing: 'theirs',
     color: '#bfefff',
@@ -73,7 +73,7 @@ export const BOOSTS: Boost[] = [
   {
     id: 'tilt',
     name: 'Uneven Desk',
-    tagline: 'Tips the desk down towards their end for their next shot.',
+    tagline: 'Tips the desk down towards their end for their shot.',
     price: 60,
     timing: 'theirs',
     color: '#d9a35b',
@@ -82,7 +82,7 @@ export const BOOSTS: Boost[] = [
   {
     id: 'wall',
     name: 'Force Wall',
-    tagline: 'Glowing walls round your half of the desk for their next shot.',
+    tagline: 'Glowing walls round your half of the desk for their shot.',
     price: 75,
     timing: 'theirs',
     color: '#5ea8ff',

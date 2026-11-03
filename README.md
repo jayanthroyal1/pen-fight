@@ -26,21 +26,21 @@ in a classroom you can almost hear.
   finisher for breaking pens, and +10% power. The heroes are original look-alikes (Green Giant, Web
   Flicker, Steel Comet, Night Wing, Amazon Lasso, Chakra Spin) plus Hanuman Gada, which turns the pen
   into a golden mace.
-- **Super powers.** Every player gets one free super power each match, any one they choose; more can
-  be bought in the store (₹25 to ₹100, one use each). The lightning button at the bottom of the desk
-  opens and closes the powers; on your turn, tap one before you flick (one a turn; tap again to take it
-  back):
+- **Super powers.** The lightning button at the bottom of the desk opens and closes the powers. On your
+  turn, use one for your shot; while the other player aims, use one against their shot (one each a shot;
+  tap again to take it back). Every player gets one use free each match, and more can be bought in the
+  store (₹25 to ₹100, one use each):
 
   | Power | Price | What it does |
   | --- | --- | --- |
-  | Lightning Bolt | ₹25 | When your pen touches theirs, lightning strikes it away |
-  | Health Boost | ₹30 | If your pen falls off this round, it comes back once |
-  | Super Grip | ₹35 | Your pen grips the desk and turns heavy for their next shot |
-  | Ice Desk | ₹45 | The desk freezes for their next shot, so everything slides |
-  | Power Strike | ₹50 | Your next flick hits half as hard again |
-  | Uneven Desk | ₹60 | The desk tips down towards their end for their next shot |
-  | Force Wall | ₹75 | Glowing walls round your half of the desk for their next shot |
-  | Double Turn | ₹100 | Shoot again straight after this shot |
+  | Lightning Bolt | ₹25 | Your shot: when your pen touches theirs, lightning strikes it away |
+  | Health Boost | ₹30 | Any time: if your pen falls off this round, it comes back once |
+  | Super Grip | ₹35 | Their shot: your pen grips the desk and turns heavy |
+  | Ice Desk | ₹45 | Their shot: the desk freezes, so everything slides |
+  | Power Strike | ₹50 | Your shot: the flick hits half as hard again |
+  | Uneven Desk | ₹60 | Their shot: the desk tips down towards their end |
+  | Force Wall | ₹75 | Their shot: glowing walls round your half of the desk |
+  | Double Turn | ₹100 | Your shot: shoot again straight after |
 
   Practice games also let you try each one once a match, and the computer uses a few too.
 - **Ways to play.** Online for rupees (quick match, invite link or room code), two players on one

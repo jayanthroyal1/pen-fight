@@ -13,32 +13,35 @@ const knockedOff = (s: GameState, p: 0 | 1): GameState => {
 };
 
 describe('super power rules', () => {
-  it('arms one super power a turn, and takes it back before the flick', () => {
+  it('arms one power for your own shot, and takes it back before the flick', () => {
     let s = newMatch();
     s = armBoost(s, 0, 'strike');
     expect(shotMods(s, 0).strike).toBeGreaterThan(1);
-    expect(boostProblem(s, 0, 'lightning')).toMatch(/One super power a turn/);
-    expect(boostProblem(s, 1, 'ice')).toMatch(/own turn/);
+    expect(boostProblem(s, 0, 'lightning')).toMatch(/One super power a shot/);
+    expect(boostProblem(s, 0, 'wall')).toMatch(/other player's shot/);
     s = disarmBoost(s, 0);
     expect(s.armed).toEqual([]);
     expect(shotMods(s, 0)).toEqual(PLAIN_SHOT);
   });
 
-  it('aims defence and tricks at the opponent’s next shot, then uses them up', () => {
-    let s = armBoost(newMatch(), 0, 'ice');
-    expect(shotMods(s, 0).ice).toBe(false);
+  it('lets the other player defend against the shot while it is aimed', () => {
+    let s = newMatch();
+    expect(boostProblem(s, 1, 'strike')).toMatch(/your own shot/);
+    s = armBoost(s, 0, 'strike');
+    s = armBoost(s, 1, 'wall');
+    expect(s.defenseThisTurn).toBe('wall');
+    expect(shotMods(s, 0)).toMatchObject({ strike: 1.5, wall: 1 });
+    expect(boostProblem(s, 1, 'ice')).toMatch(/One super power a shot/);
     s = resolveShot(s, 0);
-    expect(s.turn).toBe(1);
-    expect(shotMods(s, 1).ice).toBe(true);
-    s = resolveShot(s, 1);
     expect(s.armed).toEqual([]);
+    expect(s.defenseThisTurn).toBeNull();
 
+    // Now player 2 shoots; player 1 tips the desk and freezes it… one at a time.
     s = armBoost(s, 0, 'tilt');
-    s = resolveShot(s, 0);
-    // Player 2's end is the low-x end, so their desk tips that way.
     expect(shotMods(s, 1).tilt).toBeLessThan(0);
-    s = armBoost(resolveShot(s, 1), 0, 'wall');
-    expect(shotMods(resolveShot(s, 0), 1).wall).toBe(0);
+    s = disarmBoost(s, 0);
+    s = armBoost(s, 0, 'ice');
+    expect(shotMods(s, 1)).toMatchObject({ ice: true, tilt: 0 });
   });
 
   it('lets Double Turn shoot again', () => {
@@ -48,18 +51,17 @@ describe('super power rules', () => {
   });
 
   it('puts a pen with a spare life back on the desk once', () => {
-    let s = armBoost(newMatch(), 0, 'health');
-    expect(s.lives[0]).toBe(1);
-    expect(boostProblem(resolveShot(s, 0), 0, 'health')).toBeTruthy();
-    s = resolveShot(knockedOff(s, 0), 0);
+    let s = armBoost(newMatch(), 1, 'health');
+    expect(s.lives[1]).toBe(1);
+    s = resolveShot(knockedOff(s, 1), 0);
     expect(s.phase).toBe('aim');
-    expect(s.pens[0].out).toBe(false);
-    expect(s.saved).toEqual([0]);
-    expect(s.lives[0]).toBe(0);
+    expect(s.pens[1].out).toBe(false);
+    expect(s.saved).toEqual([1]);
+    expect(s.lives[1]).toBe(0);
     // A second fall counts.
-    s = resolveShot(knockedOff({ ...s, turn: 1 }, 0), 1);
+    s = resolveShot(knockedOff(s, 1), 1);
     expect(s.phase).toBe('roundOver');
-    expect(s.roundWinner).toBe(1);
+    expect(s.roundWinner).toBe(0);
     expect(nextRound(s).lives).toEqual([0, 0]);
   });
 });
@@ -89,8 +91,9 @@ describe('super power physics', () => {
   });
 
   it('keeps a pen on the desk behind a Force Wall', () => {
-    expect(run(PLAIN_SHOT, 1200)[1].out).toBe(true);
-    expect(run({ ...PLAIN_SHOT, wall: 0 }, 1200)[1].out).toBe(false);
+    // Lightning knocks the pen off, unless the wall stops it.
+    expect(run({ ...PLAIN_SHOT, lightning: true }, 700)[1].out).toBe(true);
+    expect(run({ ...PLAIN_SHOT, lightning: true, wall: 0 }, 700)[1].out).toBe(false);
   });
 
   it('tips pens downhill on an Uneven Desk', () => {

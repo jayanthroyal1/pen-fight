@@ -72,8 +72,10 @@ export interface GameState {
   armed: ArmedBoost[];
   /** Spare lives from Health Boost, this round only. */
   lives: [number, number];
-  /** The super power the player on turn has armed; one per turn. */
+  /** The super power the player on turn has armed for their shot; one a shot. */
   boostThisTurn: BoostId | null;
+  /** The super power the other player has armed against this shot; one a shot. */
+  defenseThisTurn: BoostId | null;
   /** Pens a Health Boost put back on the desk in the shot just resolved. */
   saved: PlayerId[];
 }

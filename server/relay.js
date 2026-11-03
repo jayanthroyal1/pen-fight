@@ -4,7 +4,7 @@
 // The game itself runs in the browsers; see src/net/protocol.ts for messages.
 import { WebSocketServer } from 'ws';
 
-const RELAYED = new Set(['shot', 'aim', 'sync', 'next', 'prize']);
+const RELAYED = new Set(['shot', 'aim', 'defend', 'sync', 'next', 'prize']);
 // No I or O, so codes are easy to read aloud.
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const ROOMS = { public: 25, private: 50, cbse: 75, international: 100 };

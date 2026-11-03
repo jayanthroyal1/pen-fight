@@ -32,7 +32,13 @@ const DEFAULT: [Loadout, Loadout] = [
 ];
 
 /** Fresh super-power state for a round. */
-const noBoosts = () => ({ armed: [], lives: [0, 0] as [number, number], boostThisTurn: null, saved: [] });
+const noBoosts = () => ({
+  armed: [],
+  lives: [0, 0] as [number, number],
+  boostThisTurn: null,
+  defenseThisTurn: null,
+  saved: [],
+});
 
 export function newMatch(loadouts: [Loadout, Loadout] = DEFAULT): GameState {
   return {
@@ -54,41 +60,53 @@ export const other = (p: PlayerId): PlayerId => (p === 0 ? 1 : 0);
 /** The deciding round: both players one win from the match. */
 export const isFinalRound = (s: GameState) => s.scores[0] === WIN_SCORE - 1 && s.scores[1] === WIN_SCORE - 1;
 
-/** Why `player` can't arm `id` right now, or null if they can. */
+/** The super power `player` has chosen for the shot about to be taken, if any. */
+export const chosenBoost = (state: GameState, player: PlayerId): BoostId | null =>
+  player === state.turn ? state.boostThisTurn : state.defenseThisTurn;
+
+/**
+ * Why `player` can't arm `id` right now, or null if they can. The shooter
+ * uses powers for their own shot; the other player uses powers against it,
+ * while the shooter aims. Health Boost works either way. One power each a shot.
+ */
 export function boostProblem(state: GameState, player: PlayerId, id: BoostId): string | null {
-  if (state.phase !== 'aim' || state.turn !== player) return 'Super powers are armed on your own turn.';
-  if (state.boostThisTurn && state.boostThisTurn !== id) return 'One super power a turn.';
-  if (id === 'health' && state.lives[player] > 0 && state.boostThisTurn !== 'health') return 'Your pen already has a spare life.';
-  if (state.armed.some((a) => a.by === player && a.id === id && state.boostThisTurn !== id)) return `${boostOf(id).name} is already waiting.`;
+  const b = boostOf(id);
+  if (state.phase !== 'aim') return 'Super powers are used before a flick.';
+  const shooting = player === state.turn;
+  if (shooting && b.timing === 'theirs') return `${b.name} works against the other player's shot. Use it while they aim.`;
+  if (!shooting && b.timing === 'mine') return `${b.name} is for your own shot. Use it on your turn.`;
+  const chosen = chosenBoost(state, player);
+  if (chosen === id) return null;
+  if (chosen) return 'One super power a shot. Tap the one that is on to take it back first.';
+  if (id === 'health' && state.lives[player] > 0) return 'Your pen already has a spare life.';
   return null;
 }
 
-/** Arms a super power for the player on turn. Returns the state unchanged if it can't be. */
+/** Arms a super power for `player` on this shot. Returns the state unchanged if it can't be. */
 export function armBoost(state: GameState, player: PlayerId, id: BoostId): GameState {
-  if (boostProblem(state, player, id) || state.boostThisTurn === id) return state;
+  if (boostProblem(state, player, id) || chosenBoost(state, player) === id) return state;
+  const slot = player === state.turn ? { boostThisTurn: id } : { defenseThisTurn: id };
   const b = boostOf(id);
   if (b.timing === 'round') {
     const lives: [number, number] = [...state.lives];
     lives[player] = 1;
-    return { ...state, lives, boostThisTurn: id };
+    return { ...state, lives, ...slot };
   }
-  const target = b.timing === 'mine' ? player : other(player);
-  return { ...state, armed: [...state.armed, { id, by: player, target }], boostThisTurn: id };
+  // Every other power changes the shot about to be taken: the shooter's.
+  return { ...state, armed: [...state.armed, { id, by: player, target: state.turn }], ...slot };
 }
 
-/** Takes back the super power armed this turn, before the flick. */
+/** Takes back the super power `player` chose for this shot, before the flick. */
 export function disarmBoost(state: GameState, player: PlayerId): GameState {
-  const id = state.boostThisTurn;
-  if (!id || state.turn !== player || state.phase !== 'aim') return state;
+  const id = chosenBoost(state, player);
+  if (!id || state.phase !== 'aim') return state;
+  const slot = player === state.turn ? { boostThisTurn: null } : { defenseThisTurn: null };
   if (boostOf(id).timing === 'round') {
     const lives: [number, number] = [...state.lives];
     lives[player] = 0;
-    return { ...state, lives, boostThisTurn: null };
+    return { ...state, lives, ...slot };
   }
-  // The one armed this turn is the last one added.
-  let i = state.armed.length - 1;
-  while (i >= 0 && !(state.armed[i].by === player && state.armed[i].id === id)) i--;
-  return { ...state, armed: state.armed.filter((_, j) => j !== i), boostThisTurn: null };
+  return { ...state, armed: state.armed.filter((a) => !(a.by === player && a.id === id)), ...slot };
 }
 
 /** How super powers change one shot by `shooter`; read by the physics world. */
@@ -157,6 +175,7 @@ export function resolveShot(state: GameState, shooter: PlayerId): GameState {
     saved,
     armed: state.armed.filter((a) => a.target !== shooter),
     boostThisTurn: null,
+    defenseThisTurn: null,
   };
   const shooterOut = pens[shooter].out;
   const opponentOut = pens[opponent].out;

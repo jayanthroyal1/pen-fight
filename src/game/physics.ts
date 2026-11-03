@@ -11,7 +11,7 @@ export const PEN_RADIUS = 6;
 export const PEN_HALF_HEIGHT = 6;
 /** Usable half-length along the axis for flicks. */
 export const HALF_SEG = PEN_LENGTH / 2 - PEN_RADIUS;
-export const MAX_IMPULSE = 1200;
+export const MAX_IMPULSE = 1000;
 /** How far below the desk top a falling pen fades out completely. */
 export const FALL_DEPTH = 150;
 

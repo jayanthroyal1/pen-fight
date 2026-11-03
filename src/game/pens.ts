@@ -242,5 +242,8 @@ export const isMetalPen = (id: PenModelId) => penModel(id).look.finish === 'meta
 /** Mass in Rapier units. */
 export const massOf = (id: PenModelId) => penModel(id).power;
 
-/** Multiplier applied to a flick's impulse. */
-export const impulseScaleOf = (id: PenModelId) => penModel(id).power ** 1.5;
+/**
+ * Multiplier applied to a flick's impulse. Stronger pens hit harder, but a
+ * full-stretch flick stays on the desk for every pen (slides about 310–430 px).
+ */
+export const impulseScaleOf = (id: PenModelId) => penModel(id).power ** 1.25;

@@ -14,6 +14,7 @@ import {
   WIN_SCORE,
   armBoost,
   boostProblem,
+  chosenBoost,
   disarmBoost,
   isFinalRound,
   matchWinner,
@@ -242,63 +243,89 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
     window.setTimeout(() => setBusy(false), seconds * 1000);
   }, []);
 
-  /** Arms or takes back a super power for the player on turn, with its effect and sound. */
+  /** Uses up a super power: the match's free one first, then one the player bought. */
+  const spendBoost = useCallback((player: PlayerId, id: BoostId) => {
+    // Only for players whose powers live on this device.
+    const bag = leftRef.current[player];
+    if (!bag) return;
+    if (freeRef.current[player]) {
+      const next: [boolean, boolean] = [...freeRef.current];
+      next[player] = false;
+      freeRef.current = next;
+      setFree(next);
+      return;
+    }
+    const left: [BoostBag | null, BoostBag | null] = [...leftRef.current];
+    left[player] = { ...bag, [id]: Math.max(0, (bag[id] ?? 0) - 1) };
+    leftRef.current = left;
+    setLeft(left);
+    spendRef.current?.(player, id);
+  }, []);
+
+  /**
+   * Arms or takes back a super power for `player`: the shooter for their own
+   * shot, or the other player against it. `fromPeer` is an online opponent's
+   * choice, already checked on their device.
+   */
   const toggleBoost = useCallback(
-    (id: BoostId) => {
+    (player: PlayerId, id: BoostId, fromPeer = false) => {
       const s = stateRef.current;
-      if (s.boostThisTurn === id) {
-        commit(disarmBoost(s, s.turn));
+      const tell = (choice: BoostId | null) => {
+        // Online, the shooter's browser needs to know what's being used against the shot.
+        if (online && !fromPeer && player !== s.turn) void online.client.send({ t: 'defend', id: choice });
+      };
+      if (chosenBoost(s, player) === id) {
+        commit(disarmBoost(s, player));
         setBoostMsg(null);
+        tell(null);
         return;
       }
-      const problem = boostProblem(s, s.turn, id);
+      const problem = boostProblem(s, player, id);
       if (problem) {
-        setBoostMsg(problem);
+        if (!fromPeer) setBoostMsg(problem);
         return;
       }
-      const bag = leftRef.current[s.turn];
-      if (bag && !freeRef.current[s.turn] && (bag[id] ?? 0) <= 0) {
-        setBoostMsg(`You have no ${boostOf(id).name} left, and this match's free power is used. Buy more in the store.`);
+      const bag = leftRef.current[player];
+      if (!fromPeer && bag && !freeRef.current[player] && (bag[id] ?? 0) <= 0) {
+        setBoostMsg(`You have no ${boostOf(id).name} left. Buy more in the store.`);
         return;
       }
       sounds.unlock();
-      commit(armBoost(s, s.turn, id));
+      commit(armBoost(s, player, id));
       setBoostMsg(null);
       sounds.boost(id);
-      sceneRef.current?.armBoost(id, s.pens[s.turn]);
+      sceneRef.current?.armBoost(id, s.pens[player]);
       buzz(20);
+      tell(id);
     },
-    [commit],
+    [commit, online],
   );
 
   const shoot = useCallback(
-    (flick: Flick, broadcast: boolean, remoteBoost: BoostId | null = null) => {
+    (flick: Flick, broadcast: boolean, remote: { boost: BoostId | null; defense: BoostId | null } | null = null) => {
       let s = stateRef.current;
       const world = worldRef.current;
       if (s.phase !== 'aim' || !world) return;
-      // An online opponent's super power arrives with their flick.
-      if (remoteBoost && s.boostThisTurn !== remoteBoost) {
-        s = armBoost(s, s.turn, remoteBoost);
-        sounds.boost(remoteBoost);
-        sceneRef.current?.armBoost(remoteBoost, s.pens[s.turn]);
+      const defender = other(s.turn);
+      if (remote) {
+        // An online shooter's flick says which powers it was taken with; that's what counts.
+        if (remote.boost && s.boostThisTurn !== remote.boost) {
+          s = armBoost(s, s.turn, remote.boost);
+          sounds.boost(remote.boost);
+          sceneRef.current?.armBoost(remote.boost, s.pens[s.turn]);
+        }
+        if (s.defenseThisTurn !== remote.defense) {
+          if (s.defenseThisTurn) {
+            s = disarmBoost(s, defender);
+            window.setTimeout(() => setBoostMsg('Too late: they had already flicked. Your power is still yours.'), 0);
+          }
+          if (remote.defense) s = armBoost(s, defender, remote.defense);
+        }
       }
       const used = s.boostThisTurn;
-      if (used && !remoteBoost && freeRef.current[s.turn]) {
-        // The match's free power goes first; bought ones are kept for later.
-        const next: [boolean, boolean] = [...freeRef.current];
-        next[s.turn] = false;
-        freeRef.current = next;
-        setFree(next);
-      } else if (used && !remoteBoost) {
-        const bag = leftRef.current[s.turn];
-        if (bag) {
-          const next: [BoostBag | null, BoostBag | null] = [...leftRef.current];
-          next[s.turn] = { ...bag, [used]: Math.max(0, (bag[used] ?? 0) - 1) };
-          leftRef.current = next;
-          setLeft(next);
-        }
-        spendRef.current?.(s.turn, used);
-      }
+      const defense = s.defenseThisTurn;
+      if (used) spendBoost(s.turn, used);
+      if (defense) spendBoost(defender, defense);
       // A clean world each shot, so both online players' browsers play it out identically.
       remoteAimRef.current = null;
       world.restart(s.pens);
@@ -313,9 +340,9 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
       sceneRef.current?.playFlick({ pen: s.pens[s.turn], flick }, pw);
       commit({ ...s, phase: 'moving' });
       setBoostMsg(null);
-      if (broadcast && online) void online.client.send({ t: 'shot', flick, boost: used });
+      if (broadcast && online) void online.client.send({ t: 'shot', flick, boost: used, defense });
     },
-    [commit, online],
+    [commit, online, spendBoost],
   );
 
   const onSettledRef = useRef<() => void>(() => {});
@@ -570,7 +597,7 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
       const pick = bag && aiBoostsRef.current > 0 ? chooseAiBoost(stateRef.current, 1, bag) : null;
       if (pick) {
         aiBoostsRef.current -= 1;
-        toggleBoost(pick);
+        toggleBoost(1, pick);
       }
       shotTimer = window.setTimeout(() => shoot(chooseAiShot(stateRef.current, 1, { samples, wobble }), false), pick ? 900 : 0);
     }, AI_DELAY_MS);
@@ -580,11 +607,40 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
     };
   }, [mode, busy, hud.phase, hud.turn, shoot, difficulty, toggleBoost]);
 
+  // While you aim, the computer may use a power against your shot.
+  useEffect(() => {
+    if (mode !== 'ai' || busy || hud.phase !== 'aim' || hud.turn !== 0) return;
+    const id = window.setTimeout(() => {
+      const bag = leftRef.current[1];
+      const s = stateRef.current;
+      if (!bag || aiBoostsRef.current <= 0 || s.phase !== 'aim' || s.turn !== 0) return;
+      const pick = chooseAiBoost(s, 1, bag);
+      if (pick) {
+        aiBoostsRef.current -= 1;
+        toggleBoost(1, pick);
+      }
+    }, 1400);
+    return () => window.clearTimeout(id);
+  }, [mode, busy, hud.phase, hud.turn, hud.round, toggleBoost]);
+
   // Opponent's moves arriving from the relay.
   useEffect(() => {
     if (!online) return;
     return online.client.subscribe((msg) => {
-      if (msg.t === 'shot') shoot(msg.flick, false, isBoostId(msg.boost) ? msg.boost : null);
+      if (msg.t === 'shot') {
+        shoot(msg.flick, false, {
+          boost: isBoostId(msg.boost) ? msg.boost : null,
+          defense: isBoostId(msg.defense) ? msg.defense : null,
+        });
+      } else if (msg.t === 'defend') {
+        // The other player used (or took back) a power against our shot.
+        const s = stateRef.current;
+        if (s.phase === 'aim' && s.turn === me) {
+          const theirs = chosenBoost(s, other(me));
+          if (msg.id && isBoostId(msg.id)) toggleBoost(other(me), msg.id, true);
+          else if (theirs) toggleBoost(other(me), theirs, true);
+        }
+      }
       else if (msg.t === 'aim') remoteAimRef.current = msg.flick;
       else if (msg.t === 'next') advance(false);
       else if (msg.t === 'peer-left') {
@@ -602,7 +658,7 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
         finishShot(msg.state);
       }
     });
-  }, [online, shoot, advance, commit, finishShot, settle, staked, me]);
+  }, [online, shoot, advance, commit, finishShot, settle, staked, me, toggleBoost]);
 
   const canAim = () => {
     const s = stateRef.current;
@@ -698,10 +754,20 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
   else if (!isHuman(hud.turn)) status = `${names[hud.turn]} is aiming…`;
   else status = 'Press on your pen, pull back and let go.';
   const note = boostNote(hud, (p) => you(p));
-  // The powers panel: every super power, for the player on turn while they aim.
-  const bag = left[hud.turn];
-  const barOpen = !busy && hud.phase === 'aim' && isHuman(hud.turn) && !peerLeft && bag !== null;
-  const freeNow = free[hud.turn];
+  // The powers panel: the shooter's powers for their shot, the other player's against it.
+  const inPlay = !busy && (hud.phase === 'aim' || hud.phase === 'moving') && !peerLeft;
+  const groups = (
+    [
+      { player: hud.turn, role: 'attack' },
+      { player: other(hud.turn), role: 'defend' },
+    ] as const
+  ).filter((g) => left[g.player] !== null && isHuman(g.player));
+  const barOpen = inPlay && groups.length > 0;
+  const canUse = (p: PlayerId, id: BoostId) => free[p] || (left[p]?.[id] ?? 0) > 0;
+  const groupTitle = (g: (typeof groups)[number]) => {
+    if (mode === 'local') return g.role === 'attack' ? `${names[g.player]}: for your shot` : `${names[g.player]}: against ${names[hud.turn]}'s shot`;
+    return g.role === 'attack' ? 'For your shot' : `Against ${names[hud.turn]}'s shot`;
+  };
   const togglePowers = () => {
     const open = !powersOpen;
     setPowersOpen(open);
@@ -788,35 +854,33 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
         {barOpen && (
           <div className="powers">
             {powersOpen && (
-              <div id="power-panel" className="power-bar" role="toolbar" aria-label="Super powers">
-                <p className="power-head">
-                  {hud.boostThisTurn
-                    ? `${boostOf(hud.boostThisTurn).name} is on for this turn. Tap it again to take it back.`
-                    : freeNow
-                      ? 'Free power: pick any one this match.'
-                      : 'Free power used. Your own powers are below.'}
-                </p>
-                {BOOSTS.map((b) => {
-                  const armed = hud.boostThisTurn === b.id;
-                  const have = bag![b.id] ?? 0;
-                  const label = armed ? 'On' : freeNow ? 'Free' : have > 0 ? `×${have}` : 'None';
-                  return (
-                    <button
-                      key={b.id}
-                      type="button"
-                      className={`power-btn${armed ? ' is-armed' : ''}${!armed && !freeNow && have === 0 ? ' is-empty' : ''}`}
-                      style={{ '--boost': b.color } as React.CSSProperties}
-                      aria-pressed={armed}
-                      title={`${b.name}: ${b.tagline}`}
-                      onClick={() => toggleBoost(b.id)}
-                    >
-                      <BoostIcon id={b.id} />
-                      {armed && <span className="power-name">{b.name}</span>}
-                      <span className="visually-hidden">{armed ? '' : b.name}</span>
-                      <span className="power-count">{label}</span>
-                    </button>
-                  );
-                })}
+              <div id="power-panel" className="power-bar" role="group" aria-label="Super powers">
+                {hud.phase === 'moving' ? (
+                  <p className="power-head">Powers are used before a flick. Wait for the pens to stop.</p>
+                ) : (
+                  groups.map((g) => (
+                    <div key={g.role} className="power-group">
+                      <p className="power-head">{groupTitle(g)}</p>
+                      {BOOSTS.filter((b) => (g.role === 'attack' ? b.timing !== 'theirs' : b.timing !== 'mine')).map((b) => {
+                        const armed = chosenBoost(hud, g.player) === b.id;
+                        return (
+                          <button
+                            key={b.id}
+                            type="button"
+                            className={`power-btn${armed ? ' is-armed' : ''}${!armed && !canUse(g.player, b.id) ? ' is-empty' : ''}`}
+                            style={{ '--boost': b.color } as React.CSSProperties}
+                            aria-pressed={armed}
+                            title={b.tagline}
+                            onClick={() => toggleBoost(g.player, b.id)}
+                          >
+                            <BoostIcon id={b.id} />
+                            <span className="power-name">{b.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))
+                )}
                 {boostMsg && (
                   <span className="power-msg" role="alert">
                     {boostMsg}
@@ -834,7 +898,6 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
             >
               <BoostIcon id="lightning" />
               <span className="visually-hidden">{powersOpen ? 'Hide super powers' : 'Show super powers'}</span>
-              {freeNow && !powersOpen && <span className="powers-badge">Free</span>}
             </button>
           </div>
         )}

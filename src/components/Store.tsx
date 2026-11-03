@@ -18,9 +18,9 @@ const TAB_NAMES: Record<Tab, string> = { pens: 'Pens', boosts: 'Super powers', p
 
 /** When each kind of super power works, for its shelf heading. */
 const TIMING: Record<BoostTiming, string> = {
-  mine: 'For your shot',
-  theirs: 'For their next shot',
-  round: 'For the round',
+  mine: 'On your turn, for your shot',
+  theirs: 'While they aim, against their shot',
+  round: 'Any time, for the round',
 };
 
 /** The stationery shop: pens by level, one-use super powers, and hero powers for a pen you own. */
@@ -113,9 +113,10 @@ export function Store({ profile, onSave, onBack }: Props) {
       {tab === 'boosts' && (
         <div className="shelves">
           <p className="muted">
-            Every match gives you one free super power: pick whichever suits the moment. The ones you buy here
-            work once each, after that. In a match, open the powers with the lightning button at the bottom and tap
-            one on your turn before you flick (one a turn; tap again to take it back). You can hold up to {MAX_BOOSTS} of each.
+            In a match, the lightning button at the bottom of the desk opens your powers. On your turn, use one for
+            your shot; while the other player aims, use one against their shot. One each a shot; tap again to take
+            it back. Every match gives you one use free, and each power bought here works once. You can hold up to{' '}
+            {MAX_BOOSTS} of each.
           </p>
           {(['mine', 'theirs', 'round'] as const).map((timing) => (
             <section key={timing} className="shelf">

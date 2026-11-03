@@ -79,7 +79,7 @@ describe('DeskWorld', () => {
 
   it('reports a pen-on-pen hit and a fall as impacts', () => {
     const world = new DeskWorld(
-      pair(createPen(0, 560, 250, Math.PI / 2), createPen(1, 680, 250, Math.PI / 2)),
+      pair(createPen(0, 600, 250, Math.PI / 2), createPen(1, 730, 250, Math.PI / 2)),
       true,
     );
     world.flick(0, { along: 0, ix: 1200, iy: 0 });
