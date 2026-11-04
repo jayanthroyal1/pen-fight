@@ -24,7 +24,7 @@ export interface Profile {
   boosts?: BoostBag;
 }
 
-export const START_RUPEES = 100;
+export const START_RUPEES = 200;
 export const START_PENS = 3;
 /** A pencil box holds at most this many pens. */
 export const MAX_PENS = 5;
