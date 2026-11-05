@@ -9,6 +9,7 @@ import { RoomSelect } from './components/RoomSelect';
 import { Settings } from './components/Settings';
 import { Splash } from './components/Splash';
 import { Store } from './components/Store';
+import { InviteEntry } from './platform/InviteEntry';
 import type { Difficulty } from './game/ai';
 import { PRACTICE_BAG } from './game/boosts';
 import { PEN_MODELS } from './game/pens';
@@ -51,6 +52,10 @@ export function App({ physics, onExit }: { physics: Promise<void>; onExit: () =>
   const profiles = useProfiles();
   const [screen, setScreen] = useState<Screen>({ kind: 'home' });
   const [invite, setInvite] = useState<Invite | null>(openingInvite);
+  // The invited friend said who they are and pressed Join.
+  const [inviteAccepted, setInviteAccepted] = useState(false);
+  const [inviteName, setInviteName] = useState('');
+  const [inviteError, setInviteError] = useState<string | null>(null);
   // The intro plays every time the app opens, and covers loading the physics engine.
   const [intro, setIntro] = useState(true);
   const [engine, setEngine] = useState<'loading' | 'ready' | 'failed'>('loading');
@@ -66,11 +71,31 @@ export function App({ physics, onExit }: { physics: Promise<void>; onExit: () =>
 
   // Opened from an invite link: once there's a player, choose a pen and join the friend's room.
   useEffect(() => {
-    if (!invite || !me) return;
+    if (!invite || !inviteAccepted || !me) return;
     setInvite(null);
     const room = roomById(invite.room);
-    setScreen(entryProblem(me, room) ? { kind: 'rooms', mode: 'online' } : { kind: 'pick', mode: 'online', room, joinCode: invite.code });
-  }, [invite, me]);
+    setScreen({ kind: 'pick', mode: 'online', room, joinCode: invite.code });
+  }, [invite, inviteAccepted, me]);
+
+  /** The invited friend pressed Join: make or update their player, then on to their pen. */
+  const acceptInvite = async () => {
+    if (!invite) return;
+    const name = (inviteName || me?.name || '').trim();
+    if (!name) {
+      setInviteError('Type your name first, so your friend knows who’s joining.');
+      return;
+    }
+    const problem = me ? entryProblem(me, roomById(invite.room)) : null;
+    if (problem) {
+      setInviteError(problem);
+      return;
+    }
+    setInviteError(null);
+    if (!me) await profiles.create(name);
+    else if (name !== me.name) await profiles.save({ ...me, name });
+    setIntro(false);
+    setInviteAccepted(true);
+  };
 
   if (engine === 'failed') {
     return (
@@ -81,6 +106,25 @@ export function App({ physics, onExit }: { physics: Promise<void>; onExit: () =>
           </p>
         </main>
       </div>
+    );
+  }
+
+  // A friend's invite comes first: no intro, just who you are and Join.
+  if (invite && !inviteAccepted && profiles.ready) {
+    const room = roomById(invite.room);
+    return (
+      <InviteEntry
+        game="Pen Fight"
+        code={invite.code}
+        detail={`${room.name} · ₹${room.bet} bet. You’ll pick your pen next.`}
+        name={inviteName || (me?.name ?? '')}
+        onName={setInviteName}
+        joining={false}
+        error={inviteError}
+        onJoin={() => void acceptInvite()}
+        onCreate={() => setInvite(null)}
+        onExit={onExit}
+      />
     );
   }
 

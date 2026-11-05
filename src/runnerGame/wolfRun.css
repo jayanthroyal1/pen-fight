@@ -1,0 +1,127 @@
+/* Wolf Run: the canvas fills any screen, and the controls sit over it. */
+.wr-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.wr-bar {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  left: max(12px, env(safe-area-inset-left));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.wr-bar > * {
+  pointer-events: auto;
+}
+
+.wr-scores {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  line-height: 1.1;
+  pointer-events: none;
+}
+
+.wr-score {
+  font-family: var(--wp-head);
+  font-size: 34px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wr-best {
+  color: var(--wp-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.wr-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(calc(100% - 32px), 380px);
+  max-height: calc(100% - 24px);
+  padding: 18px 16px;
+  overflow-y: auto;
+  color: var(--wp-text);
+  font-family: inherit;
+  text-align: center;
+  background: var(--wp-l1);
+  border: 1px solid var(--wp-edge-strong);
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  touch-action: manipulation;
+}
+
+.wr-title {
+  font-family: var(--wp-head);
+  font-size: 38px;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.wr-help {
+  color: var(--wp-muted);
+  font-size: 15px;
+}
+
+.wr-final {
+  color: var(--wp-accent);
+  font-family: var(--wp-head);
+  font-size: 60px;
+  line-height: 1;
+}
+
+.wr-go {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 12px;
+  color: var(--wp-on-accent);
+  font-family: var(--wp-head);
+  font-size: 20px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--wp-accent);
+}
+
+/* Phones held sideways: everything shorter, so the card clears the ground. */
+@media (max-height: 500px) {
+  .wr-card {
+    gap: 4px;
+    padding: 10px 14px;
+  }
+
+  .wr-title {
+    font-size: 28px;
+  }
+
+  .wr-final {
+    font-size: 42px;
+  }
+
+  .wr-go {
+    padding: 8px;
+    font-size: 18px;
+  }
+
+  .wr-score {
+    font-size: 28px;
+  }
+}

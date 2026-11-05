@@ -12,15 +12,15 @@ export interface Genre {
 }
 
 export const GENRES: Genre[] = [
-  { id: 'action', name: 'Action', tagline: 'Fast hands, big hits.', color: '#ff5a1f' },
-  { id: 'adventure', name: 'Adventure', tagline: 'Go somewhere you’ve never been.', color: '#2fbf8f' },
-  { id: 'office', name: 'Office', tagline: 'Desk chaos for your coffee break.', color: '#4f8cff' },
-  { id: 'simulation', name: 'Simulation', tagline: 'Build it, run it, break it.', color: '#b06bff' },
-  { id: 'puzzle', name: 'Puzzle', tagline: 'Think twice, move once.', color: '#ffc233' },
-  { id: 'online', name: 'Online', tagline: 'Real players, real rivalries.', color: '#19d3e6' },
+  { id: 'action', name: 'Action', tagline: 'Fast hands, big hits.', color: '#ff4a26' },
+  { id: 'adventure', name: 'Adventure', tagline: 'Go somewhere you’ve never been.', color: '#57c84d' },
+  { id: 'office', name: 'Office', tagline: 'Desk chaos for your coffee break.', color: '#ffc21a' },
+  { id: 'simulation', name: 'Simulation', tagline: 'Build it, run it, break it.', color: '#2fb4e8' },
+  { id: 'puzzle', name: 'Puzzle', tagline: 'Think twice, move once.', color: '#e84f9c' },
+  { id: 'online', name: 'Online', tagline: 'Real players, real rivalries.', color: '#18c7b2' },
 ];
 
-export type GameId = 'pen-fight';
+export type GameId = 'pen-fight' | 'guess-movie' | 'doodle-rush' | 'wolf-run';
 
 export interface Game {
   id: GameId;
@@ -29,7 +29,11 @@ export interface Game {
   /** Short facts shown on the game's card. */
   facts: string[];
   genres: GenreId[];
+  /** A named section inside one genre's page, with a line about it. */
+  shelf?: { genre: GenreId; name: string; tagline: string };
 }
+
+const FRIDAY_FUN = { genre: 'office', name: 'Friday Fun', tagline: 'Quick games to start the weekend.' } as const;
 
 export const GAMES: Game[] = [
   {
@@ -38,6 +42,29 @@ export const GAMES: Game[] = [
     tagline: 'Flick your pen, knock theirs off the desk, and win it.',
     facts: ['1–2 players', 'Online', 'Hero powers'],
     genres: ['action', 'online'],
+  },
+  {
+    id: 'guess-movie',
+    title: 'Guess the Movie Title',
+    tagline: 'A few little pictures, four titles. Name the movie.',
+    facts: ['1 player', 'Telugu', 'Picture puzzle'],
+    genres: ['office'],
+    shelf: FRIDAY_FUN,
+  },
+  {
+    id: 'doodle-rush',
+    title: 'Doodle Rush',
+    tagline: 'One player draws, everyone races to guess the word.',
+    facts: ['2–8 players', 'Online rooms', 'Draw and guess'],
+    genres: ['online', 'puzzle', 'office'],
+    shelf: FRIDAY_FUN,
+  },
+  {
+    id: 'wolf-run',
+    title: 'Wolf Run',
+    tagline: 'Jump the rocks, dodge the owls, and beat your best.',
+    facts: ['1 player', 'One-tap controls', 'Endless'],
+    genres: ['action'],
   },
 ];
 
@@ -50,4 +77,4 @@ export const isGameId = (v: string): v is GameId => GAMES.some((g) => g.id === v
 export const gamesIn = (id: GenreId): Game[] => GAMES.filter((g) => g.genres.includes(id));
 
 /** The platform's own colour, from the logo. */
-export const BRAND_ORANGE = '#ff7a1a';
+export const BRAND_ORANGE = '#ff6a13';

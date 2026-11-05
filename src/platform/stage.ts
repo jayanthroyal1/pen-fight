@@ -5,7 +5,7 @@ import { BRAND_ORANGE } from './catalog';
 export const LOGO_ASPECT = 947 / 610;
 const LOGO_W = 4;
 const FOV = 42;
-const SKY = '#0b1c2b';
+const SKY = '#0f1115';
 
 /** The logo's width on screen, in CSS pixels; `.wp-intro-logo` sets the same size. */
 function logoPixels(): number {
@@ -84,18 +84,9 @@ const GRID_FRAGMENT = /* glsl */ `
   }
 `;
 
-interface Tween {
-  from: number;
-  to: number;
-  start: number;
-  seconds: number;
-}
-
 /**
- * The 3D behind the whole platform, in one scene: thousands of points that
- * pull together into the logo, burst through the screen when the player enters,
- * and then drift as the starfield behind the menus, with a neon grid and slowly
- * turning shards cut like the wolf in the logo.
+ * The 3D behind the menus, in one scene: a drifting field of points coloured
+ * from the logo, a neon grid and slowly turning shards cut like the wolf.
  */
 export class PlatformStage {
   private renderer: THREE.WebGLRenderer;
@@ -121,8 +112,6 @@ export class PlatformStage {
   private shardMaterial: THREE.MeshStandardMaterial | null = null;
   private tint = new THREE.Color(BRAND_ORANGE);
   private tmp = new THREE.Object3D();
-  private assembleTween: Tween | null = null;
-  private warpTween: Tween | null = null;
   private pointer = { x: 0, y: 0 };
   private scroll = 0;
   private dist = 8;
@@ -176,9 +165,9 @@ export class PlatformStage {
     key.position.set(4, 6, 6);
     this.scene.add(hemi, key);
     this.shardMaterial = new THREE.MeshStandardMaterial({
-      color: '#1d3c55',
+      color: '#2b3039',
       emissive: this.tint.clone(),
-      emissiveIntensity: 0.28,
+      emissiveIntensity: 0.14,
       roughness: 0.42,
       metalness: 0.35,
       flatShading: true,
@@ -261,26 +250,8 @@ export class PlatformStage {
     this.scene.add(this.points);
   }
 
-  private tween(from: number, to: number, seconds: number): Tween {
-    return { from, to, start: performance.now(), seconds };
-  }
-
-  /** The points pull together into the logo. */
-  playAssemble(seconds: number): void {
-    this.assembleTween = this.tween(0, 1, seconds);
-  }
-
-  /** The logo bursts past the camera and becomes the starfield. */
-  warp(seconds: number): void {
-    this.assembleTween = null;
-    this.pointUniforms.uAssemble.value = 1;
-    this.warpTween = this.tween(this.pointUniforms.uWarp.value, 1, seconds);
-  }
-
   /** Straight to the starfield, with no intro. */
   skipToStars(): void {
-    this.assembleTween = null;
-    this.warpTween = null;
     this.pointUniforms.uAssemble.value = 1;
     this.pointUniforms.uWarp.value = 1;
     this.gridUniforms.uShow.value = 1;
@@ -334,12 +305,6 @@ export class PlatformStage {
     this.pointUniforms.uSize.value = (this.tier === 'high' ? 0.085 : 0.11) * h * this.pixelRatio * 0.5;
   };
 
-  private tick(tw: Tween | null, now: number): { value: number; done: boolean } | null {
-    if (!tw) return null;
-    const k = Math.min(1, (now - tw.start) / (tw.seconds * 1000));
-    return { value: tw.from + (tw.to - tw.from) * k, done: k >= 1 };
-  }
-
   private frame = (now: number) => {
     if (!this.running) return;
     this.raf = requestAnimationFrame(this.frame);
@@ -351,16 +316,6 @@ export class PlatformStage {
     u.uTime.value += dt;
     this.gridUniforms.uTime.value += dt;
 
-    const assemble = this.tick(this.assembleTween, now);
-    if (assemble) {
-      u.uAssemble.value = assemble.value;
-      if (assemble.done) this.assembleTween = null;
-    }
-    const warp = this.tick(this.warpTween, now);
-    if (warp) {
-      u.uWarp.value = warp.value * warp.value * (3 - 2 * warp.value);
-      if (warp.done) this.warpTween = null;
-    }
     const w = u.uWarp.value;
     // Once the sharp logo image is on top, the points sink behind it.
     u.uLogoAlpha.value += ((u.uAssemble.value >= 1 ? 0.18 : 1) - u.uLogoAlpha.value) * Math.min(1, dt * 5);

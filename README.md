@@ -1,17 +1,27 @@
 # WildPlayers
 
-A gaming platform for the browser, built phone-first. It opens with a three.js intro where thousands of
-points pull together into the logo, then one tap flies through it to the landing page: a featured game
-and tiles for each genre (Action, Adventure, Office, Simulation, Puzzle, Online). Sounds are synthesised
-with Web Audio, and browsers only allow them after a first tap, which is why the intro ends on "Tap to enter".
+A gaming platform for the browser, built phone-first. It opens with a 10-second film (`public/brand/`: a wide
+cut, and a portrait cut for tall screens that keeps the whole logo in view), then the landing page: a
+featured game and tiles for each genre (Action, Adventure, Office, Simulation, Puzzle, Online). Browsers only
+allow sound after a tap, so if autoplay with sound is refused the film waits on a "Tap to start" title screen.
+
+Games: Wolf Run (Action), an endless one-tap runner whose rules are in `src/runnerGame/sim.ts`; Pen Fight
+(Action, Online); and Guess the Movie Title (Friday Fun, inside Office), a picture puzzle where three or
+more small pictures point to a Telugu movie and the player picks its title from four. Add movies in
+`src/movieGame/movies.ts`; Hindi, Tamil and English are listed as coming soon until they have movie lists.
+Doodle Rush (Online, Puzzle, and Friday Fun in Office) is a draw-and-guess game for 2 to 8 players in online
+rooms: `src/drawGame/rules.ts` holds the rules, and the room's first player runs them for everyone over
+Supabase Realtime, passing the job on if they leave. It needs the same Supabase settings as online Pen Fight.
 
 - `src/platform/` is the shell: `catalog.ts` lists genres and games (add a game here), `stage.ts` is the
   3D background, `Intro.tsx`, `Pages.tsx` and `Platform.tsx` are the screens, using Motion for animation.
 - Only the shell loads first. A game is its own download, fetched in the background once the landing page
   is up, and the 3D background is freed before a game starts.
+- Full screen: on Android the first tap hides the browser's bars, with a switch in the header. iPhones don't
+  allow that, so the landing page offers Add to Home Screen once; installed, it opens with no bars on any phone.
 - It adapts: phones get fewer points and a capped frame rate, and it lowers its resolution if frames run
-  slow. With reduced motion, Data Saver or no WebGL there is no 3D, and the same pages run on a CSS
-  background. `?stage=off` shows that version.
+  slow. With reduced motion or Data Saver there is no film and no 3D, and without WebGL no 3D: the same pages
+  run on a plain background. `?stage=off` shows that version.
 
 # Pen Fight
 

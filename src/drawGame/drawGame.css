@@ -1,0 +1,433 @@
+/* Doodle Rush. Uses the platform's surfaces and its one accent; the white sheet is the star. */
+.dr-wrap {
+  gap: 12px;
+  max-width: 560px;
+}
+
+.dr-top {
+  min-height: 48px;
+}
+
+.dr-name {
+  flex: 1;
+  margin: 0;
+  font-family: var(--wp-head);
+  font-size: 22px;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.dr-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: var(--wp-space);
+  background: var(--wp-l1);
+  border: 1px solid var(--wp-edge);
+}
+
+.dr-title {
+  margin: 0;
+  font-family: var(--wp-head);
+  font-size: 38px;
+  font-weight: 400;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.dr-lead {
+  margin: 0;
+  color: var(--wp-muted);
+}
+
+.dr-label {
+  margin: 0;
+  color: var(--wp-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dr-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.dr-root input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 12px;
+  color: var(--wp-text);
+  font: inherit;
+  /* 16px or more, or phones zoom the page when the field is tapped. */
+  font-size: 17px;
+  background: var(--wp-l0);
+  border: 1px solid var(--wp-edge-strong);
+  border-radius: 0;
+  outline: none;
+}
+
+.dr-root input:focus {
+  border-color: var(--wp-accent);
+}
+
+.dr-btn {
+  min-height: 48px;
+  padding: 0 14px;
+  color: var(--wp-text);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  background: var(--wp-l3);
+  border: 1px solid var(--wp-edge);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.dr-error {
+  margin: 0;
+  color: #ff8a80;
+}
+
+.dr-code {
+  margin: 0;
+  font-family: var(--wp-head);
+  font-size: 68px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+}
+
+.dr-roster {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--wp-edge);
+}
+
+.dr-roster li {
+  padding: 10px 12px;
+  font-weight: 600;
+}
+
+.dr-roster li + li {
+  border-top: 1px solid var(--wp-edge);
+}
+
+.dr-roster span {
+  color: var(--wp-muted);
+  font-weight: 500;
+}
+
+/* The game: fills the screen, and shrinks with the phone's keyboard. */
+.dr-table {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: max(6px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+}
+
+.dr-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.dr-word {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  text-align: center;
+}
+
+.dr-word .dr-label {
+  overflow: hidden;
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dr-mask {
+  overflow: hidden;
+  font-family: var(--wp-head);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dr-clock {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  font-family: var(--wp-head);
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+  background: var(--wp-l2);
+  border: 1px solid var(--wp-edge);
+}
+
+.dr-clock.is-low {
+  color: var(--wp-on-accent);
+  background: var(--wp-accent);
+}
+
+.dr-stage {
+  position: relative;
+  flex: 0 1 auto;
+  width: 100%;
+  max-height: 56dvh;
+  min-height: 0;
+  aspect-ratio: 4 / 3;
+  align-self: center;
+  overflow: hidden;
+  background: #fff;
+}
+
+.dr-sheet {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.dr-sheet.is-mine {
+  cursor: crosshair;
+}
+
+.dr-cover {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+  overflow-y: auto;
+  text-align: center;
+  background: var(--wp-l1);
+}
+
+.dr-cover-title {
+  margin: 0;
+  font-family: var(--wp-head);
+  font-size: 26px;
+  text-transform: uppercase;
+}
+
+.dr-cover-word {
+  margin: 0;
+  color: var(--wp-accent);
+  font-family: var(--wp-head);
+  font-size: clamp(34px, 11vw, 56px);
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.dr-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(100%, 300px);
+}
+
+.dr-final {
+  justify-content: flex-start;
+}
+
+.dr-final-list {
+  width: min(100%, 320px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--wp-edge);
+}
+
+.dr-final-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 10px;
+}
+
+.dr-final-list li + li {
+  border-top: 1px solid var(--wp-edge);
+}
+
+.dr-scores {
+  display: flex;
+  flex: none;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  list-style: none;
+  background: var(--wp-edge);
+  border: 1px solid var(--wp-edge);
+  scrollbar-width: none;
+}
+
+.dr-scores li {
+  display: flex;
+  flex: 1 0 auto;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 84px;
+  padding: 4px 8px;
+  font-size: 14px;
+  background: var(--wp-l1);
+}
+
+.dr-scores li.is-drawer {
+  box-shadow: inset 0 -2px 0 var(--wp-accent);
+}
+
+.dr-scores li.is-in {
+  color: var(--wp-right);
+}
+
+.dr-tools {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dr-colors {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+}
+
+.dr-color {
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--wp-edge-strong);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.dr-color.is-on {
+  outline: 3px solid var(--wp-accent);
+  outline-offset: -3px;
+}
+
+.dr-tool-row {
+  display: grid;
+  grid-template-columns: 48px 48px 48px 1fr 1fr;
+  gap: 4px;
+}
+
+.dr-size {
+  display: grid;
+  place-items: center;
+  height: 48px;
+  padding: 0;
+  background: var(--wp-l2);
+  border: 1px solid var(--wp-edge);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.dr-size span {
+  display: block;
+  background: var(--wp-text);
+  border-radius: 50%;
+}
+
+.dr-size.is-on {
+  border-color: var(--wp-accent);
+}
+
+.dr-talk {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+.dr-log {
+  flex: 1;
+  min-height: 0;
+  padding: 6px 8px;
+  overflow-y: auto;
+  font-size: 15px;
+  background: var(--wp-l1);
+  border: 1px solid var(--wp-edge);
+}
+
+.dr-line {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.dr-line.is-right {
+  color: var(--wp-right);
+  font-weight: 700;
+}
+
+.dr-line.is-close {
+  color: var(--wp-accent);
+  font-weight: 700;
+}
+
+.dr-line.is-info {
+  color: var(--wp-muted);
+}
+
+.dr-guess {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+.dr-guess input {
+  flex: 1;
+  min-width: 0;
+}
+
+.dr-send {
+  flex: none;
+  min-height: 48px;
+  padding: 0 16px;
+  font-size: 17px;
+}
+
+/* Phones held sideways: the sheet on the left, everything else beside it. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .dr-table {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    max-width: none;
+  }
+
+  .dr-bar,
+  .dr-scores,
+  .dr-talk,
+  .dr-tools {
+    grid-column: 2;
+  }
+
+  .dr-stage {
+    grid-row: 1 / -1;
+    grid-column: 1;
+    height: 100%;
+    max-height: none;
+    width: auto;
+    max-width: 100%;
+  }
+}

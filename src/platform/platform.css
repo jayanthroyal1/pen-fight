@@ -1,25 +1,34 @@
 /*
- * WildPlayers, the platform around the games. Mobile first: the base styles are for a
- * phone, and wider screens are added on top. Colours come from the logo.
+ * WildPlayers, the platform around the games: a console launcher, not a web page.
+ * Graphite surfaces one step apart, 1px edges, corners cut like the wolf in the logo, and a
+ * single accent, the logo's orange, on what can be pressed. Colour lives in the artwork.
+ * Mobile first: the base styles are for a phone.
  */
 .wp-root,
 .wp-intro,
 .wp-wipe,
 .wp-loading {
-  --wp-sky: #0b1c2b;
-  --wp-panel: #12293c;
-  --wp-panel-2: #183449;
-  --wp-orange: #ff7a1a;
-  --wp-orange-hot: #ffa45c;
-  --wp-text: #f2f6f9;
-  --wp-muted: #a9bccb;
-  --wp-line: rgba(255, 255, 255, 0.14);
-  --wp-font: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+  --wp-l0: #0f1115;
+  --wp-l1: #181b21;
+  --wp-l2: #21252d;
+  --wp-l3: #2b3039;
+  --wp-edge: rgba(255, 255, 255, 0.11);
+  --wp-edge-strong: rgba(255, 255, 255, 0.24);
+  --wp-text: #f2f0ea;
+  --wp-muted: #9aa1ac;
+  --wp-accent: #ff6a13;
+  --wp-on-accent: #14100c;
+  --wp-right: #37c871;
+  --wp-wrong: #f2453d;
+  --wp-cut: 12px;
+  --wp-head: 'Anton', 'Arial Narrow', Impact, sans-serif;
+  --wp-font: 'Barlow', 'Segoe UI', system-ui, sans-serif;
   --wp-space: 16px;
   box-sizing: border-box;
   color: var(--wp-text);
   font-family: var(--wp-font);
   font-size: 16px;
+  font-weight: 500;
   line-height: 1.4;
 }
 
@@ -31,7 +40,7 @@
 
 body {
   margin: 0;
-  background: #0b1c2b;
+  background: #0f1115;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -39,16 +48,11 @@ body {
   position: fixed;
   inset: 0;
   overflow: hidden;
-  /* Stands in for the 3D where it can't run; the canvas covers it where it can. */
-  background:
-    radial-gradient(90% 60% at 80% 0%, rgba(255, 122, 26, 0.2), transparent 70%),
-    radial-gradient(80% 50% at 0% 100%, rgba(63, 140, 255, 0.16), transparent 70%),
-    var(--wp-sky);
+  background: var(--wp-l0);
 }
 
 .wp-stage-host,
-.wp-stage,
-.wp-vignette {
+.wp-stage {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -60,20 +64,47 @@ body {
 }
 
 .wp-vignette {
-  background: radial-gradient(ellipse at 50% 40%, transparent 45%, rgba(4, 12, 20, 0.6) 100%);
-  pointer-events: none;
+  display: none;
 }
 
-/* The intro */
+/* The intro: the film fills any screen; the portrait cut is picked for tall ones. */
 .wp-intro {
   position: absolute;
   inset: 0;
   z-index: 3;
-  display: grid;
-  place-items: center;
-  width: 100%;
-  padding: 0;
   overflow: hidden;
+  background: #05080c;
+  transition: opacity 0.36s ease;
+}
+
+.wp-intro.is-out {
+  opacity: 0;
+}
+
+.wp-intro-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+}
+
+.wp-intro.is-video .wp-intro-video,
+.wp-intro.is-out .wp-intro-video {
+  opacity: 1;
+}
+
+.wp-intro-title {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(20px, 6dvh, 56px);
+  width: 100%;
+  padding: 16px;
   background: none;
   border: 0;
   cursor: pointer;
@@ -84,65 +115,66 @@ body {
 .wp-intro-logo {
   width: min(84vw, calc(50dvh * 1.552), 520px);
   height: auto;
-  will-change: transform, opacity;
-}
-
-.wp-intro-flash {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 50% 50%, #fff3e6, var(--wp-orange) 45%, transparent 75%);
-  pointer-events: none;
-}
-
-.wp-intro-ring {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 60vmin;
-  height: 60vmin;
-  margin: -30vmin 0 0 -30vmin;
-  border: 3px solid var(--wp-orange-hot);
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.wp-intro-foot {
-  position: absolute;
-  right: 0;
-  bottom: max(9dvh, calc(env(safe-area-inset-bottom) + 24px));
-  left: 0;
-  display: block;
-  text-align: center;
 }
 
 .wp-intro-prompt {
   display: inline-block;
-  padding: 10px 26px;
-  color: #10202e;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  padding: 10px 28px;
+  color: var(--wp-on-accent);
+  font-family: var(--wp-head);
+  font-size: 20px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  background: var(--wp-orange);
+  background: var(--wp-accent);
   clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
   animation: wp-pulse 1.5s ease-in-out infinite;
 }
 
-.wp-intro-skip {
-  color: var(--wp-muted);
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.wp-intro:focus-visible .wp-intro-prompt {
+.wp-intro-title:focus-visible .wp-intro-prompt {
   outline: 2px solid #fff;
   outline-offset: 4px;
 }
 
+.wp-intro-controls {
+  position: absolute;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(16px, calc(env(safe-area-inset-bottom) + 10px));
+  left: max(12px, env(safe-area-inset-left));
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wp-intro-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  color: var(--wp-text);
+  font-family: var(--wp-font);
+  font-size: 15px;
+  font-weight: 700;
+  background: var(--wp-l1);
+  border: 1px solid var(--wp-edge-strong);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.wp-intro-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.wp-intro-progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: var(--wp-accent);
+  transform-origin: left;
+}
+
 @keyframes wp-pulse {
   50% {
-    filter: brightness(1.25);
     transform: scale(1.05);
   }
 }
@@ -190,35 +222,260 @@ body {
   width: 48px;
   height: 48px;
   color: var(--wp-text);
-  background: rgba(18, 41, 60, 0.82);
-  border: 1px solid var(--wp-line);
-  border-radius: 12px;
+  background: var(--wp-l2);
+  border: 1px solid var(--wp-edge);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
   cursor: pointer;
   touch-action: manipulation;
 }
 
 .wp-hero-title {
   margin: 0;
-  font-size: clamp(30px, 9vw, 60px);
-  font-weight: 700;
-  line-height: 1.04;
-  letter-spacing: -0.01em;
+  font-family: var(--wp-head);
+  font-size: clamp(44px, 14vw, 88px);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.01em;
   text-transform: uppercase;
 }
 
 .wp-hero-title em {
   display: block;
-  color: var(--wp-orange);
+  color: var(--wp-accent);
   font-style: normal;
 }
 
 .wp-section {
-  margin: 4px 0 12px;
+  margin: 4px 0 10px;
+  padding-bottom: 6px;
   color: var(--wp-muted);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+  border-bottom: 1px solid var(--wp-edge);
+}
+
+.wp-top-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* The offer to install, once, under the header. */
+.wp-install {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  background: var(--wp-l2);
+  border: 1px solid var(--wp-edge);
+}
+
+.wp-install p {
+  flex: 1 1 200px;
+  margin: 0;
+}
+
+.wp-install-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.wp-install-go,
+.wp-install-no {
+  min-height: 44px;
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  border: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.wp-install-go {
+  color: var(--wp-on-accent);
+  background: var(--wp-accent);
+}
+
+.wp-install-no {
+  color: var(--wp-text);
+  background: var(--wp-l3);
+}
+
+/* The featured games: a row that snaps, so a finger can swipe it. */
+.wp-section-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--wp-edge);
+}
+
+.wp-section-row .wp-section {
+  margin: 0;
+  border-bottom: 0;
+}
+
+.wp-arrows {
+  display: flex;
+  gap: 6px;
+  padding-bottom: 6px;
+}
+
+.wp-arrows .wp-icon-btn {
+  width: 44px;
+  height: 44px;
+}
+
+.wp-next svg {
+  transform: scaleX(-1);
+}
+
+.wp-slides {
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.wp-slides::-webkit-scrollbar {
+  display: none;
+}
+
+.wp-slide {
+  display: flex;
+  flex: 0 0 100%;
+  min-width: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.wp-slide .wp-game {
+  flex: 1;
+  min-width: 0;
+}
+
+.wp-dots {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+/* A small bar in a 44px target. */
+.wp-dot {
+  position: relative;
+  width: 44px;
+  height: 28px;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.wp-dot::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  right: 6px;
+  left: 6px;
+  height: 4px;
+  background: var(--wp-l3);
+}
+
+.wp-dot.is-on::after {
+  background: var(--wp-accent);
+}
+
+/* A friend's invite, the same in every game. */
+.wp-invite {
+  gap: 12px;
+  max-width: 560px;
+}
+
+.wp-invite-game {
+  flex: 1;
+  margin: 0;
+  font-family: var(--wp-head);
+  font-size: 22px;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.wp-invite-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: var(--wp-space);
+  background: var(--wp-l1);
+  border: 1px solid var(--wp-edge);
+}
+
+.wp-invite-label,
+.wp-invite-detail {
+  margin: 0;
+  color: var(--wp-muted);
+  font-size: 15px;
+}
+
+.wp-invite-code {
+  margin: 0;
+  font-family: var(--wp-head);
+  font-size: 68px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+}
+
+.wp-invite-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.wp-invite-field input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 12px;
+  color: var(--wp-text);
+  font: inherit;
+  /* 16px or more, or phones zoom the page when the field is tapped. */
+  font-size: 17px;
+  background: var(--wp-l0);
+  border: 1px solid var(--wp-edge-strong);
+  border-radius: 0;
+  outline: none;
+}
+
+.wp-invite-field input:focus {
+  border-color: var(--wp-accent);
+}
+
+.wp-invite-error {
+  margin: 0;
+  color: #ff8a80;
+}
+
+.wp-invite-create {
+  align-self: center;
+  min-height: 44px;
+  padding: 0 12px;
+  color: var(--wp-muted);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
 /* A game's card */
@@ -226,10 +483,10 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: rgba(18, 41, 60, 0.92);
-  border: 1px solid var(--wp-line);
-  border-radius: 18px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  background: var(--wp-l1);
+  border: 1px solid var(--wp-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  clip-path: polygon(var(--wp-cut) 0, 100% 0, 100% calc(100% - var(--wp-cut)), calc(100% - var(--wp-cut)) 100%, 0 100%, 0 var(--wp-cut));
 }
 
 .wp-game-art {
@@ -246,15 +503,17 @@ body {
 .wp-game-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   padding: var(--wp-space);
 }
 
 .wp-game-title {
   margin: 0;
-  font-size: 26px;
-  font-weight: 700;
+  font-family: var(--wp-head);
+  font-size: 30px;
+  font-weight: 400;
   line-height: 1.1;
+  letter-spacing: 0.01em;
   text-transform: uppercase;
 }
 
@@ -266,18 +525,12 @@ body {
 .wp-facts {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin: 0;
+  gap: 2px 14px;
+  margin: 0 0 4px;
   padding: 0;
+  color: var(--wp-muted);
+  font-size: 14px;
   list-style: none;
-}
-
-.wp-facts li {
-  padding: 2px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  background: var(--wp-panel-2);
-  border-radius: 999px;
 }
 
 .wp-play {
@@ -287,29 +540,28 @@ body {
   gap: 8px;
   min-height: 54px;
   padding: 0 24px;
-  color: #10202e;
-  font-family: inherit;
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  color: var(--wp-on-accent);
+  font-family: var(--wp-head);
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  background: linear-gradient(180deg, var(--wp-orange-hot), var(--wp-orange));
+  background: var(--wp-accent);
   border: 0;
-  border-radius: 12px;
-  box-shadow: 0 8px 22px rgba(255, 122, 26, 0.36);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
   cursor: pointer;
   touch-action: manipulation;
 }
 
-/* Genre tiles: two across on a phone */
+/* Genre tiles: two across on a phone. The artwork carries the colour. */
 .wp-tiles {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .wp-tile {
-  --accent: var(--wp-orange);
+  --accent: var(--wp-accent);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -322,12 +574,10 @@ body {
   color: var(--wp-text);
   font-family: inherit;
   text-align: left;
-  background: var(--wp-panel);
-  background: linear-gradient(155deg, color-mix(in srgb, var(--accent) 42%, var(--wp-panel)), var(--wp-panel) 72%);
-  border: 1px solid var(--wp-line);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  border-radius: 16px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  background: var(--wp-l1);
+  border: 1px solid var(--wp-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  clip-path: polygon(var(--wp-cut) 0, 100% 0, 100% calc(100% - var(--wp-cut)), calc(100% - var(--wp-cut)) 100%, 0 100%, 0 var(--wp-cut));
   cursor: pointer;
   touch-action: manipulation;
   transform-style: preserve-3d;
@@ -335,11 +585,10 @@ body {
 
 .wp-tile-art {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 58%;
+  top: 12px;
+  right: 12px;
+  width: 54%;
   color: var(--accent);
-  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.4));
   transform: translateZ(30px);
 }
 
@@ -350,9 +599,10 @@ body {
 }
 
 .wp-tile-name {
-  font-size: 20px;
-  font-weight: 700;
+  font-family: var(--wp-head);
+  font-size: 25px;
   line-height: 1.15;
+  letter-spacing: 0.01em;
   text-transform: uppercase;
   transform: translateZ(18px);
 }
@@ -373,23 +623,23 @@ body {
   align-items: center;
   gap: 14px;
   padding: 14px;
-  background: var(--wp-panel);
-  background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 42%, var(--wp-panel)), var(--wp-panel) 80%);
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  border-radius: 16px;
+  background: var(--wp-l1);
+  border: 1px solid var(--wp-edge);
+  clip-path: polygon(var(--wp-cut) 0, 100% 0, 100% calc(100% - var(--wp-cut)), calc(100% - var(--wp-cut)) 100%, 0 100%, 0 var(--wp-cut));
 }
 
 .wp-banner-art {
   flex: none;
-  width: 76px;
+  width: 72px;
   color: var(--accent);
 }
 
 .wp-banner-title {
   margin: 0;
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 1.1;
+  font-family: var(--wp-head);
+  font-size: 38px;
+  font-weight: 400;
+  line-height: 1.05;
   text-transform: uppercase;
 }
 
@@ -403,20 +653,36 @@ body {
   gap: 16px;
 }
 
+/* A named section inside a genre's page. */
+.wp-shelf {
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--wp-edge);
+}
+
+.wp-shelf-name {
+  margin: 0;
+  font-family: var(--wp-head);
+  font-size: 24px;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
 .wp-empty {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 20px var(--wp-space);
-  background: rgba(18, 41, 60, 0.92);
-  border: 1px dashed var(--wp-line);
-  border-radius: 16px;
+  background: var(--wp-l1);
+  border: 1px solid var(--wp-edge);
 }
 
 .wp-empty-title {
   margin: 0;
-  font-size: 22px;
-  font-weight: 700;
+  font-family: var(--wp-head);
+  font-size: 24px;
+  font-weight: 400;
+  text-transform: uppercase;
 }
 
 .wp-empty p {
@@ -434,18 +700,18 @@ body {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  color: #10202e;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  color: var(--wp-on-accent);
+  font-family: var(--wp-head);
+  font-size: 22px;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  background: linear-gradient(160deg, var(--wp-orange-hot), var(--wp-orange) 60%, #c94f06);
+  background: var(--wp-accent);
 }
 
 .wp-wipe img {
   width: min(46vw, 220px);
   height: auto;
-  filter: brightness(0) saturate(100%) invert(9%) sepia(20%) saturate(1800%) hue-rotate(170deg);
+  filter: brightness(0);
 }
 
 .wp-loading {
@@ -453,7 +719,30 @@ body {
   inset: 0;
   display: grid;
   place-items: center;
-  background: var(--wp-sky);
+  background: var(--wp-l0);
+}
+
+/* A picture puzzle on grey paper, for Guess the Movie Title's card. */
+.wp-puzzle-art {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 12px;
+  height: 100%;
+  font-size: clamp(44px, 15vw, 68px);
+  line-height: 1.1;
+  background: #b9b9b9;
+}
+
+.wp-puzzle-art small {
+  flex-basis: 100%;
+  color: #262626;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-align: center;
 }
 
 .wp-art-pen-a {
@@ -468,10 +757,6 @@ body {
   transform-box: fill-box;
   transform-origin: center;
   animation: wp-spark 2.8s ease-in-out infinite;
-}
-
-.wp-art-glow {
-  animation: wp-glow 2.8s ease-in-out infinite;
 }
 
 @keyframes wp-clash-a {
@@ -494,24 +779,19 @@ body {
   78%, 100% { opacity: 0; transform: scale(0.6) rotate(30deg); }
 }
 
-@keyframes wp-glow {
-  0%, 46%, 100% { opacity: 0.25; }
-  52% { opacity: 1; }
-}
-
 .wp-root button:focus-visible {
   outline: 2px solid #fff;
-  outline-offset: 2px;
+  outline-offset: -3px;
 }
 
 @media (hover: hover) {
   .wp-icon-btn:hover,
   .wp-tile:hover {
-    border-color: var(--accent, var(--wp-orange));
+    background: var(--wp-l3);
   }
 
   .wp-play:hover {
-    filter: brightness(1.08);
+    background: #ff7d33;
   }
 }
 
@@ -528,7 +808,7 @@ body {
 
   .wp-tiles {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
+    gap: 14px;
   }
 
   .wp-tile {
@@ -537,11 +817,11 @@ body {
   }
 
   .wp-tile-art {
-    width: 42%;
+    width: 40%;
   }
 
   .wp-tile-name {
-    font-size: 24px;
+    font-size: 30px;
   }
 
   .wp-game {
@@ -552,10 +832,6 @@ body {
     flex: 1.15;
     aspect-ratio: auto;
     min-height: 240px;
-  }
-
-  .wp-pen-art {
-    object-fit: cover;
   }
 
   .wp-game-body {
@@ -580,11 +856,7 @@ body {
   }
 
   .wp-intro-logo {
-    width: min(70vw, calc(58dvh * 1.552));
-  }
-
-  .wp-intro-foot {
-    bottom: max(6px, env(safe-area-inset-bottom));
+    width: min(60vw, calc(52dvh * 1.552));
   }
 }
 
@@ -592,8 +864,7 @@ body {
   .wp-intro-prompt,
   .wp-art-pen-a,
   .wp-art-pen-b,
-  .wp-art-spark,
-  .wp-art-glow {
+  .wp-art-spark {
     animation: none;
   }
 

@@ -2,10 +2,10 @@ import { createClient } from '@supabase/supabase-js';
 import type { Member, PresenceChannel, Realtime } from './realtimeLink';
 
 /** Supabase Realtime channels, shaped for `RealtimeLink`. Uses only the public key. */
-export function supabaseRealtime(url: string, publicKey: string): Realtime {
+export function supabaseRealtime<M = Member>(url: string, publicKey: string): Realtime<M> {
   const supabase = createClient(url, publicKey, { auth: { persistSession: false } });
   return {
-    channel(name, key): PresenceChannel {
+    channel(name, key): PresenceChannel<M> {
       const ch = supabase.channel(name, { config: { presence: { key }, broadcast: { self: false } } });
       const syncs: (() => void)[] = [];
       const leaves: ((key: string) => void)[] = [];
@@ -25,12 +25,12 @@ export function supabaseRealtime(url: string, publicKey: string): Realtime {
               else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') reject(new Error(`Realtime ${status}`));
             });
           }),
-        track: async (member: Member) => {
-          await ch.track(member);
+        track: async (member: M) => {
+          await ch.track(member as Record<string, unknown>);
         },
         members: () =>
           Object.fromEntries(
-            Object.entries(ch.presenceState<Member>()).map(([k, metas]) => [k, metas[0] as unknown as Member]),
+            Object.entries(ch.presenceState()).map(([k, metas]) => [k, metas[0] as unknown as M]),
           ),
         send: async (payload) => {
           await ch.send({ type: 'broadcast', event: 'msg', payload });

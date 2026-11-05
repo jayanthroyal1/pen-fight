@@ -1,3 +1,4 @@
+import { WOLF_PARTS } from '../runnerGame/wolf';
 import type { GenreId } from './catalog';
 
 /** Faceted art for each genre, cut in angles like the wolf in the logo. */
@@ -64,23 +65,12 @@ export function GenreArt({ id }: { id: GenreId }) {
 export function PenFightArt() {
   return (
     <svg className="wp-pen-art" viewBox="0 0 320 170" aria-hidden>
-      <defs>
-        <linearGradient id="wp-desk" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#2a1a12" />
-          <stop offset="1" stopColor="#123047" />
-        </linearGradient>
-        <radialGradient id="wp-glow">
-          <stop offset="0" stopColor="#ffb46b" stopOpacity="0.95" />
-          <stop offset="1" stopColor="#ff7a1a" stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      <rect width="320" height="170" fill="url(#wp-desk)" />
-      <polygon points="0,170 120,60 210,170" fill="#ff7a1a" opacity="0.07" />
-      <polygon points="320,0 200,96 320,130" fill="#4f8cff" opacity="0.08" />
-      <circle className="wp-art-glow" cx="160" cy="84" r="74" fill="url(#wp-glow)" />
+      <rect width="320" height="170" fill="#21252d" />
+      <polygon points="0,170 120,60 210,170" fill="#2b3039" />
+      <polygon points="320,0 200,96 320,130" fill="#181b21" />
       <g className="wp-art-pen wp-art-pen-a">
-        <polygon points="10,132 142,78 150,92 18,146" fill="#ff7a1a" />
-        <polygon points="10,132 142,78 145,84 13,138" fill="#ffc08a" />
+        <polygon points="10,132 142,78 150,92 18,146" fill="#ff6a13" />
+        <polygon points="10,132 142,78 145,84 13,138" fill="#ffb07f" />
         <polygon points="142,78 164,76 150,92" fill="#f3f6f9" />
         <polygon points="10,132 18,146 6,150 0,138" fill="#7a2c06" />
       </g>
@@ -95,6 +85,45 @@ export function PenFightArt() {
   );
 }
 
+/** A half-drawn cat on a sheet, with the pen still at work, for Doodle Rush's card. */
+export function DoodleArt() {
+  const line = { fill: 'none', stroke: '#14100c', strokeWidth: 5, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
+  return (
+    <svg className="wp-pen-art" viewBox="0 0 320 170" aria-hidden>
+      <rect width="320" height="170" fill="#21252d" />
+      <polygon points="52,12 268,6 276,158 44,164" fill="#f2f0ea" />
+      <path {...line} d="M118 118c-16-30-8-58 2-74 8 6 15 12 20 18 12-3 26-3 38 0 6-7 12-13 21-18 9 18 15 44 1 74-20 22-62 22-82 0z" />
+      <path {...line} d="M140 92h.1M180 92h.1M152 108c6 6 12 6 18 0" />
+      <path d="M84 96 42 88M84 108H40M236 96l40-8" fill="none" stroke="#ff6a13" strokeWidth="5" strokeLinecap="round" />
+      <polygon points="276,78 300,52 310,62 286,88 272,92" fill="#ff6a13" />
+      <text x="160" y="154" textAnchor="middle" fontFamily="Anton, Impact, sans-serif" fontSize="17" letterSpacing="5" fill="#14100c">_ _ _</text>
+    </svg>
+  );
+}
+
+/** The wolf mid-leap over a rock, for Wolf Run's card. */
+export function WolfRunArt() {
+  return (
+    <svg className="wp-pen-art" viewBox="0 0 320 170" aria-hidden>
+      <rect width="320" height="170" fill="#0f1115" />
+      <polygon points="0,130 60,70 120,120 190,60 260,118 320,84 320,170 0,170" fill="#181b21" />
+      <circle cx="262" cy="42" r="20" fill="#f2f0ea" />
+      <circle cx="254" cy="38" r="18" fill="#0f1115" />
+      <rect y="136" width="320" height="34" fill="#2b3039" />
+      <rect y="136" width="320" height="3" fill="#ff6a13" />
+      <polygon points="190,136 196,112 212,102 228,114 234,136" fill="#4a505c" />
+      <polygon points="196,112 212,102 214,126 204,136 190,136" fill="#6a7180" />
+      <g transform="translate(92 42) scale(2) rotate(-10 32 22)">
+        <polygon points="14,32 20,32 8,44 3,44" fill="#c94f06" />
+        <polygon points="36,32 42,32 54,42 49,44" fill="#ff6a13" />
+        {WOLF_PARTS.map((p) => (
+          <polygon key={p.points.join()} points={p.points.join(' ')} fill={p.fill} />
+        ))}
+      </g>
+    </svg>
+  );
+}
+
 export function SoundIcon({ muted }: { muted: boolean }) {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
@@ -104,6 +133,20 @@ export function SoundIcon({ muted }: { muted: boolean }) {
       ) : (
         <path d="M16 8.5a5 5 0 0 1 0 7M18.6 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
       )}
+    </svg>
+  );
+}
+
+export function FullscreenIcon({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <path
+        d={on ? 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5' : 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5'}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="square"
+      />
     </svg>
   );
 }

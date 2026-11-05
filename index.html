@@ -2,20 +2,24 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b1c2b" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#0f1115" />
     <meta name="description" content="WildPlayers: play Pen Fight and more games, on your phone or in your browser." />
     <title>WildPlayers</title>
     <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="WildPlayers" />
     <link rel="icon" href="./brand/icon-192.png" />
     <link rel="apple-touch-icon" href="./brand/icon-192.png" />
     <link rel="preload" as="image" href="./brand/wildplayers-logo.webp" fetchpriority="high" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@500;600;700&display=swap" />
     <style>
-      /* The first paint: the logo on navy, before any script has run. */
-      html, body { margin: 0; background: #0b1c2b; }
+      /* The first paint: the logo on graphite, before any script has run. */
+      html, body { margin: 0; background: #0f1115; }
       .wp-boot { position: fixed; inset: 0; display: grid; place-items: center; color: #dbe7f0; font-family: system-ui, sans-serif; }
       .wp-boot img { width: min(84vw, calc(50dvh * 1.552), 520px); height: auto; }
       .wp-boot noscript { position: absolute; bottom: 10%; padding: 0 24px; text-align: center; }

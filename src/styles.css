@@ -2280,3 +2280,9 @@ div.room-card.is-locked {
   right: auto;
   left: 0;
 }
+
+/* Installed on a phone the page runs under the status bar, so keep clear of it. */
+.app:not(.is-playing) {
+  padding-top: max(var(--space-3), env(safe-area-inset-top));
+  padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
+}

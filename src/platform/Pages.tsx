@@ -1,7 +1,8 @@
 import { m, useMotionValue, useReducedMotion, useSpring, useTransform } from 'motion/react';
-import { useState } from 'react';
-import { BackIcon, GenreArt, PenFightArt, SoundIcon } from './art';
+import { useEffect, useRef, useState } from 'react';
+import { BackIcon, DoodleArt, FullscreenIcon, GenreArt, PenFightArt, SoundIcon, WolfRunArt } from './art';
 import { GAMES, GENRES, gamesIn, genre as genreOf, type Game, type Genre, type GenreId } from './catalog';
+import { canFullscreen, dismissInstall, install, installOffer, isFullscreen, onInstallChange, toggleFullscreen } from './fullscreen';
 import { buzz, sfx } from './sfx';
 import { asset } from './tier';
 
@@ -58,12 +59,75 @@ function SoundToggle() {
   );
 }
 
-function GameCard({ game, onPlay, onWarm }: { game: Game; onPlay: (g: Game) => void; onWarm: () => void }) {
+function FullscreenToggle() {
+  const [on, setOn] = useState(() => canFullscreen && isFullscreen());
+  useEffect(() => {
+    const sync = () => setOn(isFullscreen());
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
+  if (!canFullscreen) return null;
+  const label = on ? 'Leave full screen' : 'Go full screen';
+  return (
+    <button type="button" className="wp-icon-btn" aria-pressed={on} aria-label={label} title={label} onClick={toggleFullscreen}>
+      <FullscreenIcon on={on} />
+    </button>
+  );
+}
+
+function TopActions() {
+  return (
+    <div className="wp-top-actions">
+      <FullscreenToggle />
+      <SoundToggle />
+    </div>
+  );
+}
+
+/** Asks once to add WildPlayers to the Home Screen, the only way to lose the bars on an iPhone. */
+function InstallPrompt() {
+  const [offer, setOffer] = useState(installOffer);
+  useEffect(() => onInstallChange(() => setOffer(installOffer())), []);
+  if (!offer) return null;
+  return (
+    <m.aside className="wp-install" variants={item} aria-label="Install WildPlayers">
+      <p>
+        <strong>Play full screen.</strong>{' '}
+        {offer === 'button' ? 'Install WildPlayers, with no browser bar.' : 'Tap Share, then Add to Home Screen.'}
+      </p>
+      <div className="wp-install-actions">
+        {offer === 'button' && (
+          <button type="button" className="wp-install-go" onClick={() => void install()}>
+            Install
+          </button>
+        )}
+        <button type="button" className="wp-install-no" onClick={dismissInstall}>
+          {offer === 'button' ? 'Not now' : 'Got it'}
+        </button>
+      </div>
+    </m.aside>
+  );
+}
+
+function GameCard({ game, onPlay, onWarm }: { game: Game; onPlay: (g: Game) => void; onWarm: (g: Game) => void }) {
   const tilt = useTilt(9);
   return (
     <m.article className="wp-game" variants={item} {...tilt}>
       <div className="wp-game-art">
-        <PenFightArt />
+        {game.id === 'wolf-run' ? (
+          <WolfRunArt />
+        ) : game.id === 'doodle-rush' ? (
+          <DoodleArt />
+        ) : game.id === 'guess-movie' ? (
+          <div className="wp-puzzle-art" aria-hidden>
+            <span>👨‍👩‍👦</span>
+            <span>❤️</span>
+            <span>🦋</span>
+            <small>#GUESSTHEMOVIE</small>
+          </div>
+        ) : (
+          <PenFightArt />
+        )}
       </div>
       <div className="wp-game-body">
         <h3 className="wp-game-title">{game.title}</h3>
@@ -77,16 +141,113 @@ function GameCard({ game, onPlay, onWarm }: { game: Game; onPlay: (g: Game) => v
           type="button"
           className="wp-play"
           whileTap={{ scale: 0.95 }}
-          onPointerDown={onWarm}
+          onPointerDown={() => onWarm(game)}
           onClick={() => onPlay(game)}
         >
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
             <polygon points="6,4 20,12 6,20" fill="currentColor" />
           </svg>
-          Play {game.title}
+          {game.id === 'pen-fight' ? `Play ${game.title}` : 'Play now'}
         </m.button>
       </div>
     </m.article>
+  );
+}
+
+/** How long each game stays up, and how long the slider waits after the player touches it. */
+const SLIDE_MS = 5000;
+
+/** The featured games: slides by itself, swipes with a finger, and has arrows and dots too. */
+function FeaturedSlider({ onPlay, onWarm }: Pick<Common, 'onPlay' | 'onWarm'>) {
+  const reduced = useReducedMotion();
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [index, setIndex] = useState(0);
+  const indexRef = useRef(0);
+  indexRef.current = index;
+  const held = useRef(false);
+  const lastTouched = useRef(0);
+
+  const show = (i: number) => {
+    const track = trackRef.current;
+    if (!track) return;
+    const next = (i + GAMES.length) % GAMES.length;
+    track.scrollTo({ left: next * track.clientWidth, behavior: reduced ? 'auto' : 'smooth' });
+  };
+
+  const byHand = (i: number) => {
+    lastTouched.current = Date.now();
+    sfx.unlock();
+    sfx.tap();
+    show(i);
+  };
+
+  useEffect(() => {
+    if (reduced) return;
+    const id = window.setInterval(() => {
+      if (held.current || document.hidden || Date.now() - lastTouched.current < SLIDE_MS) return;
+      show(indexRef.current + 1);
+    }, SLIDE_MS);
+    return () => window.clearInterval(id);
+    // `show` only reads refs and `reduced`.
+  }, [reduced]);
+
+  return (
+    <section aria-labelledby="wp-featured" aria-roledescription="carousel">
+      <m.div className="wp-section-row" variants={item}>
+        <h2 id="wp-featured" className="wp-section">
+          Featured
+        </h2>
+        <div className="wp-arrows">
+          <button type="button" className="wp-icon-btn" aria-label="Show the previous game" title="Show the previous game" onClick={() => byHand(index - 1)}>
+            <BackIcon />
+          </button>
+          <button type="button" className="wp-icon-btn wp-next" aria-label="Show the next game" title="Show the next game" onClick={() => byHand(index + 1)}>
+            <BackIcon />
+          </button>
+        </div>
+      </m.div>
+      <div
+        ref={trackRef}
+        className="wp-slides"
+        onScroll={(e) => {
+          const t = e.currentTarget;
+          setIndex(Math.round(t.scrollLeft / Math.max(1, t.clientWidth)));
+        }}
+        onPointerEnter={(e) => {
+          if (e.pointerType === 'mouse') held.current = true;
+        }}
+        onPointerLeave={() => {
+          held.current = false;
+        }}
+        onPointerDown={() => {
+          lastTouched.current = Date.now();
+        }}
+        onFocus={() => {
+          held.current = true;
+        }}
+        onBlur={() => {
+          held.current = false;
+        }}
+      >
+        {GAMES.map((g, i) => (
+          <div key={g.id} className="wp-slide" role="group" aria-roledescription="slide" aria-label={`${i + 1} of ${GAMES.length}: ${g.title}`}>
+            <GameCard game={g} onPlay={onPlay} onWarm={onWarm} />
+          </div>
+        ))}
+      </div>
+      <div className="wp-dots">
+        {GAMES.map((g, i) => (
+          <button
+            key={g.id}
+            type="button"
+            className={`wp-dot${i === index ? ' is-on' : ''}`}
+            aria-label={`Show ${g.title}`}
+            aria-current={i === index}
+            onClick={() => byHand(i)}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -119,7 +280,7 @@ function GenreTile({ genre, onOpen }: { genre: Genre; onOpen: (id: GenreId) => v
 interface Common {
   onPlay: (g: Game) => void;
   /** A press on Play: start fetching the game before the tap even lands. */
-  onWarm: () => void;
+  onWarm: (g: Game) => void;
   onScroll: (top: number) => void;
 }
 
@@ -137,18 +298,14 @@ export function Landing({ onPlay, onWarm, onScroll, onGenre }: Common & { onGenr
       <div className="wp-wrap">
         <m.header className="wp-top" variants={item}>
           <img className="wp-top-logo" src={asset('brand/wildplayers-logo.webp')} alt="WildPlayers" width={947} height={610} />
-          <SoundToggle />
+          <TopActions />
         </m.header>
+        <InstallPrompt />
         <m.h1 className="wp-hero-title" variants={item}>
           Pick a game. <em>Go wild.</em>
         </m.h1>
 
-        <section aria-labelledby="wp-featured">
-          <m.h2 id="wp-featured" className="wp-section" variants={item}>
-            Featured
-          </m.h2>
-          <GameCard game={GAMES[0]} onPlay={onPlay} onWarm={onWarm} />
-        </section>
+        <FeaturedSlider onPlay={onPlay} onWarm={onWarm} />
 
         <section aria-labelledby="wp-genres">
           <m.h2 id="wp-genres" className="wp-section" variants={item}>
@@ -184,7 +341,7 @@ export function GenrePage({ id, onPlay, onWarm, onScroll, onBack }: Common & { i
           <button type="button" className="wp-icon-btn" aria-label="Go back to all genres" title="Go back to all genres" onClick={onBack}>
             <BackIcon />
           </button>
-          <SoundToggle />
+          <TopActions />
         </m.header>
         <m.div layoutId={`genre-${id}`} className="wp-banner">
           <span className="wp-banner-art">
@@ -198,8 +355,16 @@ export function GenrePage({ id, onPlay, onWarm, onScroll, onBack }: Common & { i
 
         {games.length > 0 ? (
           <section aria-label={`${genre.name} games`} className="wp-games">
-            {games.map((g) => (
-              <GameCard key={g.id} game={g} onPlay={onPlay} onWarm={onWarm} />
+            {games.map((g, i) => (
+              <div key={g.id}>
+                {g.shelf?.genre === id && games[i - 1]?.shelf?.name !== g.shelf.name && (
+                  <m.div className="wp-shelf" variants={item}>
+                    <h2 className="wp-shelf-name">{g.shelf.name}</h2>
+                    <p className="wp-banner-tag">{g.shelf.tagline}</p>
+                  </m.div>
+                )}
+                <GameCard game={g} onPlay={onPlay} onWarm={onWarm} />
+              </div>
             ))}
           </section>
         ) : (
@@ -210,7 +375,7 @@ export function GenrePage({ id, onPlay, onWarm, onScroll, onBack }: Common & { i
               type="button"
               className="wp-play"
               whileTap={{ scale: 0.95 }}
-              onPointerDown={onWarm}
+              onPointerDown={() => onWarm(GAMES[0])}
               onClick={() => onPlay(GAMES[0])}
             >
               Play {GAMES[0].title}

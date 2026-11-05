@@ -13,6 +13,8 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    // Several test files load the physics engine's 3 MB of WASM at once.
+    hookTimeout: 60_000,
     // The package only declares a browser `module` entry, which Vitest's resolver skips.
     alias: {
       '@dimforge/rapier3d': fileURLToPath(new URL('./node_modules/@dimforge/rapier3d/rapier.js', import.meta.url)),

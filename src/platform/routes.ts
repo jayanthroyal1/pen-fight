@@ -16,5 +16,8 @@ export function routeHash(route: Route): string {
 
 /** The route a page opens on: an invite link goes straight into the game. */
 export function openingRoute(search: string, hash: string): Route {
-  return new URLSearchParams(search).has('room') ? { kind: 'play', id: 'pen-fight' } : parseRoute(hash);
+  const params = new URLSearchParams(search);
+  if (params.has('room')) return { kind: 'play', id: 'pen-fight' };
+  if (params.has('draw')) return { kind: 'play', id: 'doodle-rush' };
+  return parseRoute(hash);
 }

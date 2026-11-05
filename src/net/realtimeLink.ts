@@ -20,22 +20,22 @@ export interface Member {
   at: number;
 }
 
-export interface PresenceChannel {
+export interface PresenceChannel<M = Member> {
   onSync(cb: () => void): void;
   onLeave(cb: (key: string) => void): void;
   onMessage(cb: (payload: unknown) => void): void;
   /** Resolves once the channel is joined. */
   subscribe(): Promise<void>;
-  track(member: Member): Promise<void>;
+  track(member: M): Promise<void>;
   /** Everyone in the channel, by their presence key. */
-  members(): Record<string, Member>;
+  members(): Record<string, M>;
   send(payload: unknown): Promise<void>;
   leave(): Promise<void>;
 }
 
-export interface Realtime {
+export interface Realtime<M = Member> {
   /** Opens a channel where this player is known by `key`. */
-  channel(name: string, key: string): PresenceChannel;
+  channel(name: string, key: string): PresenceChannel<M>;
 }
 
 // No I or O, so codes are easy to read aloud (same as the relay's).

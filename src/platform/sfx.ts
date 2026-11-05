@@ -1,6 +1,6 @@
 /**
  * The platform's sounds, synthesised with Web Audio so nothing extra downloads:
- * the logo stinger, interface ticks, whooshes and a low ambient hum. Browsers
+ * interface ticks, whooshes and a low ambient hum. Browsers
  * only allow sound after a tap, so `unlock` runs on the first one. Mute is shared
  * with the games.
  */
@@ -51,11 +51,6 @@ class PlatformSfx {
     if (this.master && this.ctx) this.master.gain.setTargetAtTime(muted ? 0 : VOLUME, this.ctx.currentTime, 0.03);
   }
 
-  /** Whether a sound played now would be heard: a tap has unlocked audio. */
-  canPlay(): boolean {
-    return this.ctx?.state === 'running';
-  }
-
   private now(): number | null {
     return this.ctx && this.master && this.ctx.state === 'running' ? this.ctx.currentTime : null;
   }
@@ -94,66 +89,7 @@ class PlatformSfx {
     src.stop(t + dur + 0.03);
   }
 
-  /** The logo's sound: a rising rush, a deep hit, a power chord and a wolf's howl. */
-  stinger(): void {
-    const t = this.now();
-    if (t === null) return;
-    const ctx = this.ctx!;
-    this.sweep(t, 200, 5200, 0.55, 0.5);
-    const hit = t + 0.42;
-    this.tone(hit, 'sine', 110, 30, 1.5, 0.95);
-    this.sweep(hit, 1800, 120, 0.9, 0.55, 0.7);
-
-    const echo = ctx.createDelay(0.6);
-    echo.delayTime.value = 0.27;
-    const fade = ctx.createGain();
-    fade.gain.value = 0.38;
-    const wet = ctx.createGain();
-    wet.gain.value = 0.6;
-    echo.connect(fade).connect(echo);
-    echo.connect(wet).connect(this.master!);
-
-    const chord = ctx.createBiquadFilter();
-    chord.type = 'lowpass';
-    chord.Q.value = 3;
-    chord.frequency.setValueAtTime(260, hit);
-    chord.frequency.exponentialRampToValueAtTime(2600, hit + 0.5);
-    chord.frequency.exponentialRampToValueAtTime(420, hit + 2);
-    chord.connect(this.master!);
-    chord.connect(echo);
-    for (const f of [55, 82.4, 110, 165]) {
-      this.tone(hit, 'sawtooth', f, f, 2.1, 0.11, chord);
-      this.tone(hit, 'sawtooth', f * 1.006, f * 1.006, 2.1, 0.08, chord);
-    }
-
-    // The howl: a slow rise, a wobble at the top, and a falling tail.
-    const howl = ctx.createOscillator();
-    howl.type = 'triangle';
-    const at = hit + 0.25;
-    howl.frequency.setValueAtTime(320, at);
-    howl.frequency.exponentialRampToValueAtTime(690, at + 0.55);
-    howl.frequency.setValueAtTime(690, at + 0.95);
-    howl.frequency.exponentialRampToValueAtTime(410, at + 1.7);
-    const wobble = ctx.createOscillator();
-    wobble.frequency.value = 5.5;
-    const depth = ctx.createGain();
-    depth.gain.value = 9;
-    wobble.connect(depth).connect(howl.frequency);
-    const env = ctx.createGain();
-    env.gain.setValueAtTime(0.0001, at);
-    env.gain.exponentialRampToValueAtTime(0.13, at + 0.35);
-    env.gain.setValueAtTime(0.13, at + 1);
-    env.gain.exponentialRampToValueAtTime(0.0001, at + 1.75);
-    howl.connect(env);
-    env.connect(this.master!);
-    env.connect(echo);
-    howl.start(at);
-    wobble.start(at);
-    howl.stop(at + 1.8);
-    wobble.stop(at + 1.8);
-  }
-
-  /** Flying through the logo into the platform. */
+  /** Rushing out of the intro into the platform. */
   warp(): void {
     const t = this.now();
     if (t === null) return;
@@ -180,6 +116,36 @@ class PlatformSfx {
     const t = this.now();
     if (t === null) return;
     this.tone(t, 'square', 620, 340, 0.1, 0.06);
+  }
+
+  /** A quick spring off the ground. */
+  hop(): void {
+    const t = this.now();
+    if (t === null) return;
+    this.tone(t, 'triangle', 300, 640, 0.11, 0.13);
+  }
+
+  /** Running into something. */
+  crash(): void {
+    const t = this.now();
+    if (t === null) return;
+    this.tone(t, 'sine', 150, 42, 0.4, 0.7);
+    this.sweep(t, 1400, 160, 0.3, 0.45, 0.8);
+  }
+
+  /** A right answer. */
+  right(): void {
+    const t = this.now();
+    if (t === null) return;
+    [523, 659, 784, 1047].forEach((f, i) => this.tone(t + i * 0.07, 'triangle', f, f, 0.28, 0.14));
+  }
+
+  /** A wrong answer. */
+  wrong(): void {
+    const t = this.now();
+    if (t === null) return;
+    this.tone(t, 'sawtooth', 220, 110, 0.32, 0.12);
+    this.tone(t + 0.04, 'square', 165, 90, 0.3, 0.05);
   }
 
   /** Opening a genre. */

@@ -1,6 +1,7 @@
 import { AnimatePresence, LazyMotion, MotionConfig, m } from 'motion/react';
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
-import { BRAND_ORANGE, genre as genreOf, type Game, type GenreId } from './catalog';
+import { BRAND_ORANGE, genre as genreOf, type Game, type GameId, type GenreId } from './catalog';
+import { autoFullscreen } from './fullscreen';
 import { Intro } from './Intro';
 import { GenrePage, Landing, feedback } from './Pages';
 import { openingRoute, parseRoute, routeHash, type Route } from './routes';
@@ -11,10 +12,20 @@ import { asset, stageTier } from './tier';
 /** Animation code arrives after the first paint; until then pages simply appear. */
 const loadMotion = () => import('./motionFeatures').then((f) => f.default);
 const loadPenFight = () => import('../PenFightGame');
+const loadGuessMovie = () => import('../movieGame/MovieGame');
+const loadDoodleRush = () => import('../drawGame/DrawGame');
+const loadWolfRun = () => import('../runnerGame/WolfRun');
 const PenFightGame = lazy(loadPenFight);
+const MovieGame = lazy(loadGuessMovie);
+const DrawGame = lazy(loadDoodleRush);
+const WolfRun = lazy(loadWolfRun);
+const loaders: Record<GameId, () => Promise<unknown>> = {
+  'pen-fight': loadPenFight,
+  'guess-movie': loadGuessMovie,
+  'doodle-rush': loadDoodleRush,
+  'wolf-run': loadWolfRun,
+};
 
-/** How long the intro waits for the 3D to load. */
-const STAGE_WAIT_MS = 4000;
 /** The wipe's shortest run, so a fast load still reads as a transition. */
 const WIPE_MS = 620;
 
@@ -25,18 +36,12 @@ const WIPE_MS = 620;
  */
 function useStage(host: React.RefObject<HTMLDivElement | null>, active: boolean) {
   const [stage, setStage] = useState<PlatformStage | null>(null);
-  const [settled, setSettled] = useState(false);
   useEffect(() => {
     if (!active) return;
     const tier = stageTier();
-    if (tier === 'off') {
-      setSettled(true);
-      return;
-    }
+    if (tier === 'off') return;
     let cancelled = false;
     let made: PlatformStage | null = null;
-    // On a slow connection the intro doesn't wait for ever: it starts without the 3D.
-    const giveUp = window.setTimeout(() => setSettled(true), STAGE_WAIT_MS);
     const canvas = document.createElement('canvas');
     canvas.className = 'wp-stage';
     host.current?.append(canvas);
@@ -46,24 +51,20 @@ function useStage(host: React.RefObject<HTMLDivElement | null>, active: boolean)
         if (cancelled) return;
         made = new PlatformStage(canvas, tier, asset('brand/wildplayers-logo.webp'));
         await made.ready;
-        window.clearTimeout(giveUp);
         if (!cancelled) setStage(made);
       } catch {
         // No WebGL, or the chunk failed to load: the CSS background stays.
         canvas.remove();
       }
-      if (!cancelled) setSettled(true);
     })();
     return () => {
       cancelled = true;
-      window.clearTimeout(giveUp);
       setStage(null);
-      setSettled(false);
       made?.dispose();
       canvas.remove();
     };
   }, [host, active]);
-  return { stage, settled };
+  return stage;
 }
 
 /** The WildPlayers shell: the intro, the landing page and genres, and starting a game. */
@@ -74,7 +75,8 @@ export function Platform() {
   const [launching, setLaunching] = useState<Game | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const playing = route.kind === 'play';
-  const { stage, settled } = useStage(hostRef, !playing);
+  // The 3D waits until the intro is over, so the video has the phone to itself.
+  const stage = useStage(hostRef, !playing && introDone);
 
   useEffect(() => {
     const onHash = () => setRoute(parseRoute(location.hash));
@@ -150,12 +152,14 @@ export function Platform() {
   };
 
   const launch = (game: Game) => {
+    // Covers anyone who came back from full screen, or never had the title screen's tap.
+    autoFullscreen();
     sfx.unlock();
     sfx.launch();
     buzz(35);
     stage?.pulse();
     setLaunching(game);
-    void Promise.all([loadPenFight(), new Promise((r) => setTimeout(r, WIPE_MS))]).then(
+    void Promise.all([loaders[game.id](), new Promise((r) => setTimeout(r, WIPE_MS))]).then(
       () => {
         go({ kind: 'play', id: game.id });
         setLaunching(null);
@@ -165,7 +169,7 @@ export function Platform() {
   };
 
   const onScroll = (top: number) => stage?.setScroll(top);
-  const common = { onPlay: launch, onWarm: () => void loadPenFight(), onScroll };
+  const common = { onPlay: launch, onWarm: (game: Game) => void loaders[game.id](), onScroll };
 
   return (
     <LazyMotion features={loadMotion}>
@@ -174,7 +178,7 @@ export function Platform() {
           <div className="wp-root">
             <div ref={hostRef} className="wp-stage-host" aria-hidden />
             <div className="wp-vignette" aria-hidden />
-            {!introDone && <Intro stage={stage} settled={settled} onDone={() => setIntroDone(true)} />}
+            {!introDone && <Intro onDone={() => setIntroDone(true)} />}
             {introDone && (
               <AnimatePresence initial>
                 {route.kind === 'genre' ? (
@@ -197,7 +201,15 @@ export function Platform() {
 
         {playing && (
           <Suspense fallback={<div className="wp-loading">Loading the game…</div>}>
-            <PenFightGame onExit={() => go({ kind: 'home' })} />
+            {route.id === 'wolf-run' ? (
+              <WolfRun onExit={() => go({ kind: 'genre', id: 'action' })} />
+            ) : route.id === 'doodle-rush' ? (
+              <DrawGame onExit={() => go({ kind: 'genre', id: 'online' })} />
+            ) : route.id === 'guess-movie' ? (
+              <MovieGame onExit={() => go({ kind: 'genre', id: 'office' })} />
+            ) : (
+              <PenFightGame onExit={() => go({ kind: 'home' })} />
+            )}
           </Suspense>
         )}
 

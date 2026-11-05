@@ -1,4 +1,5 @@
 import type { ClientMsg, ServerMsg } from './protocol';
+import type { Realtime } from './realtimeLink';
 
 export type Listener = (msg: ServerMsg) => void;
 
@@ -30,4 +31,11 @@ export async function connectGame(): Promise<GameLink> {
   }
   const { OnlineClient } = await import('./client');
   return new OnlineClient();
+}
+
+/** The realtime service for games that need one, or null if the site has none set up. */
+export async function openRealtime<M>(): Promise<Realtime<M> | null> {
+  if (!usesSupabase) return null;
+  const { supabaseRealtime } = await import('./supabaseRealtime');
+  return supabaseRealtime<M>(SUPABASE_URL, SUPABASE_KEY);
 }
