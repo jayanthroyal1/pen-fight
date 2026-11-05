@@ -267,3 +267,13 @@
     font-size: 28px;
   }
 }
+
+/* Tall phones have room to keep the card above the ground, with the wolf in view. */
+@media (orientation: portrait) and (min-height: 700px) {
+  .wr-card {
+    top: calc(68% - 76px);
+    max-height: calc(68% - 148px - env(safe-area-inset-top));
+    margin-top: 0;
+    transform: translate(-50%, -100%);
+  }
+}

@@ -1,6 +1,7 @@
 import { AnimatePresence, m } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BackIcon } from '../platform/art';
+import { autoFullscreen } from '../platform/fullscreen';
 import { buzz, sfx } from '../platform/sfx';
 import { POINTS, ROUNDS, newGame, pointsFor, type Round } from './game';
 import { LANGUAGES, TELUGU_MOVIES, type Language } from './movies';
@@ -133,10 +134,69 @@ function LanguagePick({ onStart }: { onStart: () => void }) {
   );
 }
 
+/**
+ * The puzzle alone, as big as the screen goes, to hold up for teammates: no
+ * titles, no clue. It follows the phone's turn, and Turn does the same for a
+ * phone with its rotation locked.
+ */
+function BigPicture({ items, onClose }: { items: string[]; onClose: () => void }) {
+  const [turned, setTurned] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="mg-big" role="dialog" aria-modal="true" aria-label="The picture puzzle, full screen">
+      <div className={`mg-big-sheet${turned ? ' is-turned' : ''}`} style={{ '--n': items.length } as React.CSSProperties}>
+        <div className="mg-big-items" role="img" aria-label={`Picture puzzle: ${items.join(' ')}`}>
+          {items.map((item, i) => (
+            <span key={i} className="mg-big-item" style={{ animationDelay: `${i * 90}ms` }}>
+              {item}
+            </span>
+          ))}
+        </div>
+        <p className="mg-tag mg-big-tag">#GUESSTHEMOVIE</p>
+      </div>
+      <div className="mg-big-tools">
+        <button
+          type="button"
+          className="mg-big-btn"
+          aria-pressed={turned}
+          aria-label="Turn the picture"
+          title="Turn the picture"
+          onClick={() => {
+            sfx.tap();
+            setTurned((t) => !t);
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden>
+            <path d="M20 12a8 8 0 1 1-2.6-5.9M20 3v5h-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <button type="button" className="mg-big-btn" aria-label="Close the full screen picture" title="Close" autoFocus onClick={onClose}>
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden>
+            <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function RoundView({ round, last, onNext }: { round: Round; last: boolean; onNext: (points: number) => void }) {
   const { movie, choices } = round;
   const [picked, setPicked] = useState<string | null>(null);
   const [clue, setClue] = useState(false);
+  const [big, setBig] = useState(false);
+  const closeBig = useCallback(() => {
+    sfx.back();
+    setBig(false);
+  }, []);
   const answered = picked !== null;
   const right = picked === movie.id;
 
@@ -154,8 +214,22 @@ function RoundView({ round, last, onNext }: { round: Round; last: boolean; onNex
 
   return (
     <section className="mg-round" aria-label="Guess this movie">
-      <div className="mg-card" role="img" aria-label={`Picture puzzle: ${movie.items.join(' ')}`}>
-        <div className="mg-items">
+      <div className="mg-card">
+        <button
+          type="button"
+          className="mg-expand"
+          onClick={() => {
+            sfx.tap();
+            autoFullscreen();
+            setBig(true);
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+            <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="square" />
+          </svg>
+          Full screen
+        </button>
+        <div className="mg-items" role="img" aria-label={`Picture puzzle: ${movie.items.join(' ')}`}>
           {movie.items.map((item, i) => (
             <m.span
               key={i}
@@ -170,6 +244,7 @@ function RoundView({ round, last, onNext }: { round: Round; last: boolean; onNex
         </div>
         <p className="mg-tag">#GUESSTHEMOVIE</p>
       </div>
+      {big && <BigPicture items={movie.items} onClose={closeBig} />}
 
       <div className="mg-clue-row">
         {clue ? (

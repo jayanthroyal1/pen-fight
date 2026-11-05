@@ -4,6 +4,7 @@ import { playerId, playerName, savePlayerName } from '../platform/player';
 import { buzz, sfx } from '../platform/sfx';
 import { fetchBoard, submitScore, type Board } from './board';
 import { drawFrame } from './draw';
+import { WolfRig } from './rig';
 import { jump, newRun, release, score, step, viewWidth, type Run } from './sim';
 import './wolfRun.css';
 
@@ -74,6 +75,7 @@ export default function WolfRun({ onExit }: { onExit: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scoreRef = useRef<HTMLSpanElement>(null);
   const runRef = useRef<Run>(newRun());
+  const rigRef = useRef(new WolfRig());
   const overAt = useRef(0);
   const [phase, setPhase] = useState<Run['phase']>('ready');
   const [best, setBest] = useState(readBest);
@@ -132,12 +134,15 @@ export default function WolfRun({ onExit }: { onExit: () => void }) {
     if (r.phase === 'over' && performance.now() - overAt.current < RESTART_DELAY_MS) return;
     if (r.phase !== 'running') {
       runRef.current = { ...newRun(), phase: 'running' };
+      rigRef.current.reset();
       setPhase('running');
       jump(runRef.current);
+      rigRef.current.jumped();
       sfx.hop();
       return;
     }
     if (jump(r)) {
+      rigRef.current.jumped();
       sfx.hop();
       buzz(8);
     }
@@ -195,7 +200,8 @@ export default function WolfRun({ onExit }: { onExit: () => void }) {
       while (r.phase === 'running' && spare >= STEP) {
         spare -= STEP;
         const was = score(r);
-        step(r, STEP, viewW);
+        const landed = step(r, STEP, viewW);
+        rigRef.current.update(STEP, r, landed);
         if (Math.floor(score(r) / MILESTONE) > Math.floor(was / MILESTONE)) sfx.right();
         if (runRef.current.phase === 'over') {
           spare = 0;
@@ -212,7 +218,9 @@ export default function WolfRun({ onExit }: { onExit: () => void }) {
         }
       }
       time += r.phase === 'running' ? dt : 0;
-      drawFrame(g, r, canvas.width, canvas.height, viewW, time);
+      // Between runs the wolf still breathes, wags and finishes falling.
+      if (runRef.current.phase !== 'running') rigRef.current.update(dt, runRef.current, false);
+      drawFrame(g, runRef.current, rigRef.current, canvas.width, canvas.height, viewW, time);
       const points = score(r);
       if (points !== shown && scoreRef.current) {
         shown = points;

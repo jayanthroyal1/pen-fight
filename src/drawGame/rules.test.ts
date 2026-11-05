@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { applyInk } from './ink';
 import type { PresenceChannel, Realtime } from '../net/realtimeLink';
 import { DrawRoom, type ChatLine, type DrawMember } from './room';
-import { CHOOSE_MS, DRAW_MS, REVEAL_MS, ROUNDS, addPlayer, chooseWord, guess, newGame, normalise, publicView, removePlayer, startGame, tick, type Game, type View } from './rules';
+import { paint, type Stroke } from './ink';
+import { CHOOSE_MS, DRAW_MS, REVEAL_MS, ROUNDS, addPlayer, backToLobby, chooseWord, guess, newGame, normalise, publicView, removePlayer, setSettings, startGame, tick, type Game, type View } from './rules';
 import { WORDS } from './words';
 
 const seeded = (seed: number) => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -240,5 +241,64 @@ describe('a room', () => {
     await a.room.leave();
     await b.until(() => b.room.isHost);
     await b.room.leave();
+  });
+});
+
+describe('the host’s settings', () => {
+  it('sets the rounds and drawing time, and keeps them for the next game', () => {
+    const g = setSettings(newGame(players(2)), 5, 120);
+    expect(publicView(g, 0)).toMatchObject({ rounds: 5, drawMs: 120_000 });
+    const playing = chooseWord(startGame(g, WORDS, 0, seeded(1)), startGame(g, WORDS, 0, seeded(1)).choices[0], 0);
+    expect(playing.deadline).toBe(120_000);
+    expect(backToLobby(playing)).toMatchObject({ rounds: 5, drawMs: 120_000 });
+  });
+
+  it('ignores anything not on offer, and any change once the game is on', () => {
+    const lobby = newGame(players(2));
+    expect(setSettings(lobby, 99, 80)).toBe(lobby);
+    const started = startGame(lobby, WORDS, 0, seeded(1));
+    expect(setSettings(started, 5, 60)).toBe(started);
+  });
+});
+
+describe('points won in a turn', () => {
+  it('counts for the guesser and the drawer, then clears for the next turn', () => {
+    const first = startGame(newGame(players(3)), WORDS, 0, seeded(3));
+    const g = chooseWord(first, first.choices[0], 0);
+    const who = g.players.find((p) => p.id !== g.drawerId)!.id;
+    const after = guess(g, who, g.word as string, 1000).game;
+    expect(after.gained[who]).toBeGreaterThan(0);
+    expect(after.gained[g.drawerId as string]).toBe(Math.round(after.gained[who] * 0.3));
+    const ended = tick(after, WORDS, DRAW_MS, seeded(1));
+    expect(tick(ended, WORDS, DRAW_MS + REVEAL_MS, seeded(1)).gained).toEqual({});
+  });
+});
+
+describe('painting a stroke', () => {
+  const pen = () => {
+    const calls: string[] = [];
+    const log = (name: string) => (...a: number[]) => void calls.push(`${name} ${a.join(' ')}`);
+    const g = { beginPath() {}, stroke() {}, fill() {}, arc: log('arc'), moveTo: log('move'), lineTo: log('line'), quadraticCurveTo: log('curve') };
+    return { g: g as unknown as CanvasRenderingContext2D, calls };
+  };
+  const stroke = (points: number[]): Stroke => ({ id: 'a', color: '#000', width: 4, points });
+
+  it('curves through the points and ends on the last one', () => {
+    const { g, calls } = pen();
+    paint(g, stroke([0, 0, 10, 0, 20, 10]));
+    expect(calls).toEqual(['move 0 0', 'line 5 0', 'curve 10 0 15 5', 'line 20 10']);
+  });
+
+  it('carries on from where the last batch curved to, leaving no gap', () => {
+    const { g, calls } = pen();
+    paint(g, stroke([0, 0, 10, 0, 20, 10, 30, 10]), 6);
+    expect(calls[0]).toBe('move 15 5');
+    expect(calls[calls.length - 1]).toBe('line 30 10');
+  });
+
+  it('joins a dot to the line it becomes', () => {
+    const { g, calls } = pen();
+    paint(g, stroke([0, 0, 10, 0]), 2);
+    expect(calls).toEqual(['move 0 0', 'line 5 0', 'line 10 0']);
   });
 });

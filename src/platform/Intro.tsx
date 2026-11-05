@@ -1,6 +1,5 @@
-import { m } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { autoFullscreen } from './fullscreen';
+import { autoFullscreen, install, installOffer, onInstallChange, wasInstalled } from './fullscreen';
 import { buzz, sfx } from './sfx';
 import { asset, stageTier } from './tier';
 
@@ -18,21 +17,43 @@ const OUT_MS = 380;
 const TALL = '(max-aspect-ratio: 1/1)';
 const videoFor = (tall: boolean) => asset(tall ? 'brand/intro-tall.mp4' : 'brand/intro-wide.mp4');
 
-/** `film` is playing; `hold` waits on the logo for the tap; `out` is fading into the platform. */
-type Phase = 'film' | 'hold' | 'out';
+/** The launch splash stays up at least this long, and no longer than the wait below for the film. */
+const SPLASH_MIN_MS = 1100;
+const SPLASH_MAX_MS = 3500;
+
+/** Who made it, along the bottom of the opening screens. */
+function Credit() {
+  return (
+    <footer className="wp-credit">
+      <p>
+        Developed by <strong>Jayanth G</strong>
+      </p>
+      <p>Copyright © 2026</p>
+    </footer>
+  );
+}
 
 /**
- * The opening: the film plays as soon as the site opens, then holds on the logo
- * with Tap to start, and that tap enters the platform. Browsers refuse sound
- * before a tap, so if it's refused the film plays silently with a Sound on
- * button. Where motion is unwelcome, data is short or the film can't play, the
- * logo and Tap to start show on their own.
+ * `splash` is the installed app's launch screen; `welcome` offers the Home Screen in a browser;
+ * `film` plays; `hold` waits for the tap; `out` fades into the platform.
+ */
+type Phase = 'splash' | 'welcome' | 'film' | 'hold' | 'out';
+
+/**
+ * The opening. In a browser it first offers the Home Screen, and pressing Play
+ * now is also the tap browsers need before they allow sound, so the film plays
+ * with sound. Once added to the Home Screen there's nothing to offer, so a splash
+ * shows while the film loads, then the film plays, silently if it has to, with a
+ * Sound on button. The logo stays hidden until the film reveals it. However the
+ * film ends (played out, skipped, stalled or never started), the logo slams in on
+ * its own for Tap to start, so that screen never depends on the film's last frame.
  */
 export function Intro({ onDone }: Props) {
   const useFilm = useRef(stageTier() !== 'off').current;
-  const [phase, setPhase] = useState<Phase>(useFilm ? 'film' : 'hold');
-  // No film frame to rest on, so the logo image stands in.
-  const [noFilm, setNoFilm] = useState(!useFilm);
+  const [phase, setPhase] = useState<Phase>(wasInstalled() ? 'splash' : 'welcome');
+  // The film is waiting on the network, which includes before its first frame.
+  const [buffering, setBuffering] = useState(true);
+  const [offer, setOffer] = useState(installOffer);
   const [progress, setProgress] = useState(0);
   const [muted, setMuted] = useState(sfx.muted);
   const [tall, setTall] = useState(() => window.matchMedia(TALL).matches);
@@ -43,11 +64,6 @@ export function Intro({ onDone }: Props) {
     videoRef.current?.pause();
     setPhase((p) => (p === 'film' ? 'hold' : p));
   }, []);
-
-  const giveUpOnFilm = useCallback(() => {
-    setNoFilm(true);
-    hold();
-  }, [hold]);
 
   const finish = useCallback(() => {
     if (leaving.current) return;
@@ -60,17 +76,82 @@ export function Intro({ onDone }: Props) {
     window.setTimeout(onDone, OUT_MS);
   }, [onDone]);
 
-  // Straight away with sound if the browser allows it, otherwise silently.
+  useEffect(() => onInstallChange(() => setOffer(installOffer())), []);
+
+  // Fetched now, so Tap to start never waits for its logo.
   useEffect(() => {
+    const logo = new Image();
+    logo.src = asset('brand/wildplayers-logo.webp');
+    void logo.decode?.().catch(() => {});
+  }, []);
+
+  // The logo's landing.
+  useEffect(() => {
+    if (phase !== 'hold') return;
+    sfx.launch();
+    buzz(40);
+  }, [phase]);
+
+  /** Play now: this tap unlocks sound, so the film starts with it. */
+  const startFilm = () => {
     const video = videoRef.current;
-    if (!video) return;
+    sfx.unlock();
+    autoFullscreen();
+    buzz(25);
+    if (!video) {
+      setPhase('hold');
+      return;
+    }
     video.muted = sfx.muted;
-    video.play().catch(() => {
-      video.muted = true;
-      setMuted(true);
-      video.play().catch(giveUpOnFilm);
-    });
-  }, [giveUpOnFilm]);
+    setMuted(sfx.muted);
+    setPhase('film');
+    video.play().catch(hold);
+  };
+
+  // Installed: the splash covers loading, then the film starts, with sound if the browser allows it.
+  useEffect(() => {
+    if (phase !== 'splash') return;
+    let ready = false;
+    let waited = false;
+    const video = videoRef.current;
+    const go = () => {
+      if (!video) {
+        setPhase('hold');
+        return;
+      }
+      setPhase('film');
+      video.muted = sfx.muted;
+      video.play().catch(() => {
+        video.muted = true;
+        setMuted(true);
+        video.play().catch(hold);
+      });
+    };
+    const check = () => {
+      if (ready && waited) go();
+    };
+    const onReady = () => {
+      ready = true;
+      check();
+    };
+    if (!video || video.readyState >= 3) ready = true;
+    else video.addEventListener('canplay', onReady, { once: true });
+    const min = window.setTimeout(() => {
+      waited = true;
+      check();
+    }, SPLASH_MIN_MS);
+    const max = window.setTimeout(() => {
+      ready = true;
+      waited = true;
+      check();
+    }, SPLASH_MAX_MS);
+    return () => {
+      window.clearTimeout(min);
+      window.clearTimeout(max);
+      video?.removeEventListener('canplay', onReady);
+    };
+    // Runs once, for the launch.
+  }, []);
 
   // A phone turned mid-film carries on from the same moment in the other cut.
   useEffect(() => {
@@ -97,15 +178,15 @@ export function Intro({ onDone }: Props) {
   // The film must never trap anyone: if it stops moving, go on without it.
   useEffect(() => {
     if (phase !== 'film' || !useFilm) return;
-    let last = -1;
+    let last = videoRef.current?.currentTime ?? 0;
     const id = window.setInterval(() => {
       if (document.hidden) return;
       const t = videoRef.current?.currentTime ?? 0;
-      if (t === last) giveUpOnFilm();
+      if (t === last) hold();
       last = t;
     }, STALL_MS);
     return () => window.clearInterval(id);
-  }, [phase, useFilm, giveUpOnFilm]);
+  }, [phase, useFilm, hold]);
 
   const onTime = () => {
     const v = videoRef.current;
@@ -134,10 +215,74 @@ export function Intro({ onDone }: Props) {
           preload="auto"
           disablePictureInPicture
           aria-hidden
+          onWaiting={() => setBuffering(true)}
+          onPlaying={() => setBuffering(false)}
           onTimeUpdate={onTime}
           onEnded={hold}
-          onError={giveUpOnFilm}
+          onError={hold}
         />
+      )}
+
+      {phase === 'splash' && (
+        <div className="wp-splash" role="status" aria-label="Loading WildPlayers">
+          <span className="wp-loader" aria-hidden />
+        </div>
+      )}
+
+      {phase === 'film' && buffering && <span className="wp-loader wp-film-loader" role="status" aria-label="Loading" />}
+
+      {phase === 'welcome' && (
+        <section className="wp-welcome" aria-labelledby="wp-welcome-title">
+          <h1 id="wp-welcome-title" className="wp-welcome-title">
+            {offer ? 'Add to your Home Screen' : 'You’re all set'}
+          </h1>
+          <p className="wp-welcome-lead">{offer ? 'Opens like an app: full screen, with no browser bar.' : 'WildPlayers is on your Home Screen.'}</p>
+          {offer === 'ios' && (
+            <ol className="wp-welcome-steps">
+              <li>
+                <span>
+                  Tap <strong>Share</strong> in your browser
+                </span>
+              </li>
+              <li>
+                <span>
+                  Choose <strong>Add to Home Screen</strong>
+                </span>
+              </li>
+            </ol>
+          )}
+          {offer === 'menu' && (
+            <ol className="wp-welcome-steps">
+              <li>
+                <span>
+                  Open your browser’s <strong>menu</strong>
+                </span>
+              </li>
+              <li>
+                <span>
+                  Choose <strong>Add to Home Screen</strong> or <strong>Install app</strong>
+                </span>
+              </li>
+            </ol>
+          )}
+          <p className="wp-welcome-volume">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+              <polygon points="3,9 7,9 12,4 12,20 7,15 3,15" fill="currentColor" />
+              <path d="M15 8.5a5 5 0 0 1 0 7M17.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            Turn your volume up for the best experience
+          </p>
+          <div className="wp-welcome-actions">
+            {offer === 'button' && (
+              <button type="button" className="wp-play" onClick={() => void install()}>
+                Add to Home Screen
+              </button>
+            )}
+            <button type="button" className={offer === 'button' ? 'wp-welcome-later' : 'wp-play'} onClick={startFilm} autoFocus>
+              {offer === 'button' ? 'Play in the browser' : 'Play now'}
+            </button>
+          </div>
+        </section>
       )}
 
       {phase === 'film' && (
@@ -156,12 +301,15 @@ export function Intro({ onDone }: Props) {
 
       {phase === 'hold' && (
         <button type="button" className="wp-intro-title" onClick={finish} autoFocus aria-label="WildPlayers. Tap to start.">
-          {noFilm && <img className="wp-intro-logo" src={asset('brand/wildplayers-logo.webp')} alt="" width={947} height={610} />}
-          <m.span className="wp-intro-prompt" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-            Tap to start
-          </m.span>
+          <span className="wp-slash" aria-hidden />
+          <span className="wp-slash is-low" aria-hidden />
+          <span className="wp-flash" aria-hidden />
+          <img className="wp-intro-logo" src={asset('brand/wildplayers-logo.webp')} alt="" width={947} height={610} />
+          <span className="wp-intro-prompt">Tap to start</span>
         </button>
       )}
+
+      {phase !== 'film' && phase !== 'out' && <Credit />}
     </div>
   );
 }

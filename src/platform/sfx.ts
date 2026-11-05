@@ -8,8 +8,15 @@
 const MUTE_KEY = 'penfight:muted';
 const VOLUME = 0.8;
 
+/** Sound is on by default: anyone muted before that became the rule gets it back, once. */
+const SOUND_RESET_KEY = 'wildplayers:sound-on-by-default';
+
 function readMuted(): boolean {
   try {
+    if (!localStorage.getItem(SOUND_RESET_KEY)) {
+      localStorage.setItem(SOUND_RESET_KEY, '1');
+      localStorage.removeItem(MUTE_KEY);
+    }
     return localStorage.getItem(MUTE_KEY) === '1';
   } catch {
     return false;

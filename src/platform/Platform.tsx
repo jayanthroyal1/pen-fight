@@ -73,10 +73,19 @@ export function Platform() {
   // The intro is for opening the site, not for a link straight into a genre or a game.
   const [introDone, setIntroDone] = useState(route.kind !== 'home');
   const [launching, setLaunching] = useState<Game | null>(null);
+  const [motionReady, setMotionReady] = useState(false);
   const hostRef = useRef<HTMLDivElement>(null);
   const playing = route.kind === 'play';
   // The 3D waits until the intro is over, so the video has the phone to itself.
   const stage = useStage(hostRef, !playing && introDone);
+
+  // A page that waits on this code to fade in would stay black on a slow or failed load.
+  useEffect(() => {
+    loadMotion().then(
+      () => setMotionReady(true),
+      () => {},
+    );
+  }, []);
 
   useEffect(() => {
     const onHash = () => setRoute(parseRoute(location.hash));
@@ -169,7 +178,7 @@ export function Platform() {
   };
 
   const onScroll = (top: number) => stage?.setScroll(top);
-  const common = { onPlay: launch, onWarm: (game: Game) => void loaders[game.id](), onScroll };
+  const common = { onPlay: launch, onWarm: (game: Game) => void loaders[game.id](), onScroll, enter: motionReady };
 
   return (
     <LazyMotion features={loadMotion}>
@@ -200,7 +209,10 @@ export function Platform() {
         )}
 
         {playing && (
-          <Suspense fallback={<div className="wp-loading">Loading the game…</div>}>
+          <Suspense fallback={<div className="wp-loading" role="status">
+                <span className="wp-loader" aria-hidden />
+                Loading the game…
+              </div>}>
             {route.id === 'wolf-run' ? (
               <WolfRun onExit={() => go({ kind: 'genre', id: 'action' })} />
             ) : route.id === 'doodle-rush' ? (
@@ -225,6 +237,7 @@ export function Platform() {
             >
               <img src={asset('brand/wildplayers-mark.webp')} alt="" width={568} height={451} />
               <span>Starting {launching.title}…</span>
+              <span className="wp-loader is-dark" aria-hidden />
             </m.div>
           )}
         </AnimatePresence>

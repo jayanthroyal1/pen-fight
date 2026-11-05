@@ -5,6 +5,9 @@
  */
 
 export const ROUNDS = 3;
+/** What the host can pick in the lobby. */
+export const ROUND_CHOICES = [2, 3, 5];
+export const SECOND_CHOICES = [60, 80, 120];
 export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 8;
 export const CHOOSE_MS = 15_000;
@@ -27,6 +30,8 @@ export interface Game {
   phase: Phase;
   players: Player[];
   round: number;
+  rounds: number;
+  drawMs: number;
   /** Who draws, in order, this round. */
   order: string[];
   turn: number;
@@ -34,6 +39,8 @@ export interface Game {
   word: string | null;
   choices: string[];
   guessed: string[];
+  /** Points each player has won this turn. */
+  gained: Record<string, number>;
   /** Positions in the word shown as hints. */
   hints: number[];
   /** When this phase ends. */
@@ -47,10 +54,12 @@ export interface View {
   players: Player[];
   round: number;
   rounds: number;
+  drawMs: number;
   drawerId: string | null;
   /** The word with hidden letters as `_`; the whole word once the turn is over. */
   mask: string;
   guessed: string[];
+  gained: Record<string, number>;
   /** Milliseconds left in this phase. */
   left: number;
   /** The word, once it can be told. */
@@ -59,16 +68,19 @@ export interface View {
 
 type Rng = () => number;
 
-export const newGame = (players: Player[] = []): Game => ({
+export const newGame = (players: Player[] = [], rounds = ROUNDS, drawMs = DRAW_MS): Game => ({
   phase: 'lobby',
   players,
   round: 0,
+  rounds,
+  drawMs,
   order: [],
   turn: 0,
   drawerId: null,
   word: null,
   choices: [],
   guessed: [],
+  gained: {},
   hints: [],
   deadline: 0,
   startedAt: 0,
@@ -91,9 +103,16 @@ function beginTurn(g: Game, words: string[], now: number, rng: Rng): Game {
     word: null,
     choices: shuffled(words, rng).slice(0, CHOICES),
     guessed: [],
+    gained: {},
     hints: [],
     deadline: now + CHOOSE_MS,
   };
+}
+
+/** The host's choices for the next game; anything not on offer is ignored. */
+export function setSettings(g: Game, rounds: number, seconds: number): Game {
+  if (g.phase !== 'lobby' || !ROUND_CHOICES.includes(rounds) || !SECOND_CHOICES.includes(seconds)) return g;
+  return { ...g, rounds, drawMs: seconds * 1000 };
 }
 
 export function startGame(g: Game, words: string[], now: number, rng: Rng = Math.random): Game {
@@ -104,7 +123,7 @@ export function startGame(g: Game, words: string[], now: number, rng: Rng = Math
 
 export function chooseWord(g: Game, word: string, now: number): Game {
   if (g.phase !== 'choosing' || !g.choices.includes(word)) return g;
-  return { ...g, phase: 'drawing', word, startedAt: now, deadline: now + DRAW_MS };
+  return { ...g, phase: 'drawing', word, startedAt: now, deadline: now + g.drawMs };
 }
 
 const endTurn = (g: Game, now: number): Game => ({ ...g, phase: 'reveal', deadline: now + REVEAL_MS });
@@ -150,15 +169,18 @@ export function guess(g: Game, playerId: string, text: string, now: number): { g
   if (said !== answer) {
     return { game: g, result: answer.length >= 4 && oneSlip(said, answer) ? 'close' : 'wrong' };
   }
-  const share = Math.max(0, (g.deadline - now) / DRAW_MS);
+  const share = Math.max(0, (g.deadline - now) / g.drawMs);
   const points = Math.max(40, guessPoints(share, g.guessed.length));
+  const forDrawer = Math.round(points * DRAWER_SHARE);
   const players = g.players.map((p) => {
     if (p.id === playerId) return { ...p, score: p.score + points };
-    if (p.id === g.drawerId) return { ...p, score: p.score + Math.round(points * DRAWER_SHARE) };
+    if (p.id === g.drawerId) return { ...p, score: p.score + forDrawer };
     return p;
   });
   const guessed = [...g.guessed, playerId];
-  const next = { ...g, players, guessed };
+  const gained = { ...g.gained, [playerId]: points };
+  if (g.drawerId) gained[g.drawerId] = (gained[g.drawerId] ?? 0) + forDrawer;
+  const next = { ...g, players, guessed, gained };
   const allIn = players.every((p) => p.id === g.drawerId || guessed.includes(p.id));
   return { game: allIn ? endTurn(next, now) : next, result: 'right' };
 }
@@ -168,7 +190,7 @@ function nextTurn(g: Game, words: string[], now: number, rng: Rng): Game {
   let turn = g.turn + 1;
   while (turn < g.order.length && !stillHere(g.order[turn])) turn++;
   if (turn < g.order.length) return beginTurn({ ...g, turn }, words, now, rng);
-  if (g.round >= ROUNDS) return { ...g, phase: 'over', drawerId: null, deadline: now };
+  if (g.round >= g.rounds) return { ...g, phase: 'over', drawerId: null, deadline: now };
   return beginTurn({ ...g, round: g.round + 1, turn: 0, order: shuffled(g.players.map((p) => p.id), rng) }, words, now, rng);
 }
 
@@ -178,7 +200,7 @@ export function tick(g: Game, words: string[], now: number, rng: Rng = Math.rand
   if (g.phase === 'reveal' && now >= g.deadline) return nextTurn(g, words, now, rng);
   if (g.phase !== 'drawing') return g;
   if (now >= g.deadline) return endTurn(g, now);
-  const gone = 1 - (g.deadline - now) / DRAW_MS;
+  const gone = 1 - (g.deadline - now) / g.drawMs;
   const due = HINTS_AT.filter((at) => gone >= at).length;
   const word = g.word ?? '';
   const hidden = [...word].map((c, i) => (c !== ' ' && !g.hints.includes(i) ? i : -1)).filter((i) => i >= 0);
@@ -205,7 +227,7 @@ export function removePlayer(g: Game, id: string, now: number): Game {
 }
 
 /** Back to the lobby for another game, keeping everyone. */
-export const backToLobby = (g: Game): Game => newGame(g.players.map((p) => ({ ...p, score: 0 })));
+export const backToLobby = (g: Game): Game => newGame(g.players.map((p) => ({ ...p, score: 0 })), g.rounds, g.drawMs);
 
 export function publicView(g: Game, now: number): View {
   const showWord = g.phase === 'reveal' || g.phase === 'over';
@@ -214,10 +236,12 @@ export function publicView(g: Game, now: number): View {
     phase: g.phase,
     players: g.players,
     round: g.round,
-    rounds: ROUNDS,
+    rounds: g.rounds,
+    drawMs: g.drawMs,
     drawerId: g.drawerId,
     mask: showWord ? word : [...word].map((c, i) => (c === ' ' || g.hints.includes(i) ? c : '_')).join(''),
     guessed: g.guessed,
+    gained: g.gained,
     left: Math.max(0, g.deadline - now),
     word: showWord ? g.word : null,
   };
@@ -227,7 +251,7 @@ export function publicView(g: Game, now: number): View {
 export function fromView(v: View, now: number): Game {
   const stillPlaying = v.phase !== 'lobby' && v.phase !== 'over';
   return {
-    ...newGame(v.players),
+    ...newGame(v.players, v.rounds, v.drawMs),
     phase: stillPlaying ? 'reveal' : v.phase,
     round: v.round,
     order: v.players.map((p) => p.id),

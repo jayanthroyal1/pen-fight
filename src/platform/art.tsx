@@ -102,6 +102,32 @@ export function DoodleArt() {
 }
 
 /** The wolf mid-leap over a rock, for Wolf Run's card. */
+/** The film strip's frames: little puzzle pictures, and the question they ask. */
+const REEL = ['🦁', '?', '💍', '🚂', '?', '🌹', '⚔️', '🔥'];
+
+/** Guess the Movie Title: a strip of film turning in 3D in front of cinema curtains. */
+export function MovieArt() {
+  return (
+    <div className="wp-reel" aria-hidden>
+      <span className="wp-reel-beam" />
+      <span className="wp-reel-beam is-left" />
+      <div className="wp-reel-scene">
+        <div className="wp-reel-ring">
+          {REEL.map((_, i) => (
+            <span key={`b${i}`} className="wp-reel-frame is-back" style={{ '--i': i } as React.CSSProperties} />
+          ))}
+          {REEL.map((frame, i) => (
+            <span key={i} className={`wp-reel-frame${frame === '?' ? ' is-ask' : ''}`} style={{ '--i': i } as React.CSSProperties}>
+              {frame}
+            </span>
+          ))}
+        </div>
+      </div>
+      <p className="wp-reel-tag">#GUESSTHEMOVIE</p>
+    </div>
+  );
+}
+
 export function WolfRunArt() {
   return (
     <svg className="wp-pen-art" viewBox="0 0 320 170" aria-hidden>

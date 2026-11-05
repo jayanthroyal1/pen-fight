@@ -1,8 +1,8 @@
 import { m, useMotionValue, useReducedMotion, useSpring, useTransform } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
-import { BackIcon, DoodleArt, FullscreenIcon, GenreArt, PenFightArt, SoundIcon, WolfRunArt } from './art';
+import { BackIcon, DoodleArt, FullscreenIcon, GenreArt, PenFightArt, SoundIcon, MovieArt, WolfRunArt } from './art';
 import { GAMES, GENRES, gamesIn, genre as genreOf, type Game, type Genre, type GenreId } from './catalog';
-import { canFullscreen, dismissInstall, install, installOffer, isFullscreen, onInstallChange, toggleFullscreen } from './fullscreen';
+import { canFullscreen, isFullscreen, toggleFullscreen } from './fullscreen';
 import { buzz, sfx } from './sfx';
 import { asset } from './tier';
 
@@ -84,31 +84,6 @@ function TopActions() {
   );
 }
 
-/** Asks once to add WildPlayers to the Home Screen, the only way to lose the bars on an iPhone. */
-function InstallPrompt() {
-  const [offer, setOffer] = useState(installOffer);
-  useEffect(() => onInstallChange(() => setOffer(installOffer())), []);
-  if (!offer) return null;
-  return (
-    <m.aside className="wp-install" variants={item} aria-label="Install WildPlayers">
-      <p>
-        <strong>Play full screen.</strong>{' '}
-        {offer === 'button' ? 'Install WildPlayers, with no browser bar.' : 'Tap Share, then Add to Home Screen.'}
-      </p>
-      <div className="wp-install-actions">
-        {offer === 'button' && (
-          <button type="button" className="wp-install-go" onClick={() => void install()}>
-            Install
-          </button>
-        )}
-        <button type="button" className="wp-install-no" onClick={dismissInstall}>
-          {offer === 'button' ? 'Not now' : 'Got it'}
-        </button>
-      </div>
-    </m.aside>
-  );
-}
-
 function GameCard({ game, onPlay, onWarm }: { game: Game; onPlay: (g: Game) => void; onWarm: (g: Game) => void }) {
   const tilt = useTilt(9);
   return (
@@ -119,12 +94,7 @@ function GameCard({ game, onPlay, onWarm }: { game: Game; onPlay: (g: Game) => v
         ) : game.id === 'doodle-rush' ? (
           <DoodleArt />
         ) : game.id === 'guess-movie' ? (
-          <div className="wp-puzzle-art" aria-hidden>
-            <span>👨‍👩‍👦</span>
-            <span>❤️</span>
-            <span>🦋</span>
-            <small>#GUESSTHEMOVIE</small>
-          </div>
+          <MovieArt />
         ) : (
           <PenFightArt />
         )}
@@ -282,15 +252,17 @@ interface Common {
   /** A press on Play: start fetching the game before the tap even lands. */
   onWarm: (g: Game) => void;
   onScroll: (top: number) => void;
+  /** The animation code has arrived. Until it has, pages show at once rather than wait hidden. */
+  enter: boolean;
 }
 
-export function Landing({ onPlay, onWarm, onScroll, onGenre }: Common & { onGenre: (id: GenreId) => void }) {
+export function Landing({ onPlay, onWarm, onScroll, enter, onGenre }: Common & { onGenre: (id: GenreId) => void }) {
   return (
     <m.main
       className="wp-page"
       layoutScroll
       onScroll={(e) => onScroll(e.currentTarget.scrollTop)}
-      initial="hidden"
+      initial={enter ? 'hidden' : false}
       animate="shown"
       exit={{ opacity: 0, transition: { duration: 0.18 } }}
       variants={list}
@@ -300,7 +272,6 @@ export function Landing({ onPlay, onWarm, onScroll, onGenre }: Common & { onGenr
           <img className="wp-top-logo" src={asset('brand/wildplayers-logo.webp')} alt="WildPlayers" width={947} height={610} />
           <TopActions />
         </m.header>
-        <InstallPrompt />
         <m.h1 className="wp-hero-title" variants={item}>
           Pick a game. <em>Go wild.</em>
         </m.h1>
@@ -322,7 +293,7 @@ export function Landing({ onPlay, onWarm, onScroll, onGenre }: Common & { onGenr
   );
 }
 
-export function GenrePage({ id, onPlay, onWarm, onScroll, onBack }: Common & { id: GenreId; onBack: () => void }) {
+export function GenrePage({ id, onPlay, onWarm, onScroll, enter, onBack }: Common & { id: GenreId; onBack: () => void }) {
   const genre = genreOf(id);
   const games = gamesIn(id);
   return (
@@ -331,7 +302,7 @@ export function GenrePage({ id, onPlay, onWarm, onScroll, onBack }: Common & { i
       layoutScroll
       style={{ '--accent': genre.color } as React.CSSProperties}
       onScroll={(e) => onScroll(e.currentTarget.scrollTop)}
-      initial="hidden"
+      initial={enter ? 'hidden' : false}
       animate="shown"
       exit={{ opacity: 0, transition: { duration: 0.18 } }}
       variants={list}

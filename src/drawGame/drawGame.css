@@ -85,6 +85,42 @@
   touch-action: manipulation;
 }
 
+.dr-btn.is-on {
+  border-color: var(--wp-accent);
+  box-shadow: inset 0 0 0 1px var(--wp-accent);
+}
+
+.dr-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dr-seg {
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  gap: 1px;
+  background: var(--wp-edge);
+  border: 1px solid var(--wp-edge);
+}
+
+.dr-seg button {
+  min-height: 48px;
+  color: var(--wp-text);
+  font-family: var(--wp-head);
+  font-size: 20px;
+  background: var(--wp-l2);
+  border: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.dr-seg button.is-on {
+  color: var(--wp-on-accent);
+  background: var(--wp-accent);
+}
+
 .dr-error {
   margin: 0;
   color: #ff8a80;
@@ -155,7 +191,23 @@
   text-overflow: ellipsis;
 }
 
+.dr-mask-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dr-count {
+  flex: none;
+  color: var(--wp-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .dr-mask {
+  min-width: 0;
   overflow: hidden;
   font-family: var(--wp-head);
   font-size: 22px;
@@ -243,8 +295,88 @@
   width: min(100%, 300px);
 }
 
+.dr-gains {
+  width: min(100%, 280px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dr-gains li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+}
+
+.dr-gains strong {
+  color: var(--wp-right);
+}
+
 .dr-final {
   justify-content: flex-start;
+}
+
+/* The steps stand 2, 1, 3, with the winner in the middle. */
+.dr-podium {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  width: min(100%, 340px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dr-podium li {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.dr-podium .is-place-1 {
+  order: 2;
+}
+
+.dr-podium .is-place-2 {
+  order: 1;
+}
+
+.dr-podium .is-place-3 {
+  order: 3;
+}
+
+.dr-podium-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dr-podium-step {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 34px;
+  margin-top: 4px;
+  font-family: var(--wp-head);
+  font-size: 22px;
+  background: var(--wp-l3);
+}
+
+.dr-podium .is-place-1 .dr-podium-step {
+  height: 62px;
+  color: var(--wp-on-accent);
+  background: var(--wp-accent);
+}
+
+.dr-podium .is-place-2 .dr-podium-step {
+  height: 46px;
 }
 
 .dr-final-list {
@@ -305,6 +437,22 @@
   gap: 6px;
 }
 
+.dr-ticker {
+  height: 42px;
+  padding: 2px 8px;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 19px;
+  background: var(--wp-l1);
+  border: 1px solid var(--wp-edge);
+}
+
+.dr-ticker .dr-line {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .dr-colors {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -326,8 +474,14 @@
 
 .dr-tool-row {
   display: grid;
-  grid-template-columns: 48px 48px 48px 1fr 1fr;
+  grid-template-columns: 48px 48px 48px 1fr 1fr 1fr;
   gap: 4px;
+}
+
+.dr-tool-row .dr-btn {
+  min-width: 0;
+  padding: 0 2px;
+  font-size: 14px;
 }
 
 .dr-size {

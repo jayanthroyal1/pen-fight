@@ -11,6 +11,7 @@ import {
   newGame,
   publicView,
   removePlayer,
+  setSettings,
   startGame,
   tick,
   type Game,
@@ -41,6 +42,7 @@ type Msg =
   | { t: 'ink'; op: InkOp }
   | { t: 'need-ink'; from: string }
   | { t: 'all-ink'; to: string; strokes: Stroke[] }
+  | { t: 'settings'; rounds: number; seconds: number }
   | { t: 'start' }
   | { t: 'again' };
 
@@ -216,6 +218,9 @@ export class DrawRoom {
       case 'pick':
         if (this.hosting) this.update(chooseWord(this.game, msg.word, this.now()));
         break;
+      case 'settings':
+        if (this.hosting) this.update(setSettings(this.game, msg.rounds, msg.seconds));
+        break;
       case 'start':
         if (this.hosting) this.update(startGame(this.game, WORDS, this.now(), this.rng));
         break;
@@ -245,6 +250,10 @@ export class DrawRoom {
   private toHost(msg: Msg): void {
     if (this.hosting) this.receive(msg);
     else void this.ch?.send(msg);
+  }
+
+  settings(rounds: number, seconds: number): void {
+    this.toHost({ t: 'settings', rounds, seconds });
   }
 
   start(): void {

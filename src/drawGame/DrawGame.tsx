@@ -6,11 +6,12 @@ import { playerName, savePlayerName } from '../platform/player';
 import { buzz, sfx } from '../platform/sfx';
 import { SHEET_H, SHEET_W, paint, type InkOp, type Stroke } from './ink';
 import { DrawRoom, type ChatLine, type DrawMember } from './room';
-import { MIN_PLAYERS, type View } from './rules';
+import { MIN_PLAYERS, ROUND_CHOICES, SECOND_CHOICES, type View } from './rules';
 import './drawGame.css';
 
-const COLORS = ['#14100c', '#ffffff', '#8a8f98', '#e0322b', '#ff6a13', '#ffc21a', '#3fae3a', '#18a5a0', '#2a6fdb', '#7a3fc9', '#e84f9c', '#8a5a2b'];
+const COLORS = ['#14100c', '#f2c9a0', '#8a8f98', '#e0322b', '#ff6a13', '#ffc21a', '#3fae3a', '#18a5a0', '#2a6fdb', '#7a3fc9', '#e84f9c', '#8a5a2b'];
 const SIZES = [5, 11, 22];
+const PAPER = '#ffffff';
 /** How often the drawer's new points are sent. */
 const FLUSH_MS = 90;
 
@@ -235,6 +236,18 @@ function Lobby({ room, view, onExit }: { room: DrawRoom; view: View; onExit: () 
             </p>
           )}
         </section>
+        <section className="dr-panel" aria-label="Game settings">
+          {room.isHost ? (
+            <>
+              <Choice label="Rounds" options={ROUND_CHOICES} value={view.rounds} onPick={(n) => room.settings(n, view.drawMs / 1000)} />
+              <Choice label="Seconds to draw" options={SECOND_CHOICES} value={view.drawMs / 1000} onPick={(n) => room.settings(view.rounds, n)} />
+            </>
+          ) : (
+            <p className="dr-lead">
+              {view.rounds} rounds, {view.drawMs / 1000} seconds to draw.
+            </p>
+          )}
+        </section>
         <section className="dr-panel" aria-label="Players">
           <p className="dr-label">Players ({view.players.length} of 8)</p>
           <ul className="dr-roster">
@@ -269,6 +282,45 @@ function Lobby({ room, view, onExit }: { room: DrawRoom; view: View; onExit: () 
   );
 }
 
+function Choice({ label, options, value, onPick }: { label: string; options: number[]; value: number; onPick: (n: number) => void }) {
+  return (
+    <div className="dr-choice" role="group" aria-label={label}>
+      <span className="dr-label">{label}</span>
+      <div className="dr-seg">
+        {options.map((n) => (
+          <button
+            key={n}
+            type="button"
+            className={n === value ? 'is-on' : ''}
+            aria-pressed={n === value}
+            onClick={() => {
+              sfx.tap();
+              onPick(n);
+            }}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** The top three on steps, the winner in the middle and highest. */
+function Podium({ ranked }: { ranked: View['players'] }) {
+  return (
+    <ol className="dr-podium">
+      {ranked.slice(0, 3).map((p, i) => (
+        <li key={p.id} className={`is-place-${i + 1}`}>
+          <span className="dr-podium-name">{p.name}</span>
+          <strong>{p.score}</strong>
+          <span className="dr-podium-step">{i + 1}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 interface TableProps {
   room: DrawRoom;
   view: View;
@@ -299,6 +351,7 @@ function Table({ room, view, chat, choices, ink, inkTick, onExit }: TableProps) 
   const guessedIt = view.guessed.includes(room.id);
   const [color, setColor] = useState(COLORS[0]);
   const [size, setSize] = useState(SIZES[1]);
+  const [erasing, setErasing] = useState(false);
   const [text, setText] = useState('');
   const logRef = useRef<HTMLDivElement>(null);
   const ranked = useMemo(() => [...view.players].sort((a, b) => b.score - a.score), [view.players]);
@@ -308,8 +361,17 @@ function Table({ room, view, chat, choices, ink, inkTick, onExit }: TableProps) 
   }, [chat]);
 
   useEffect(() => {
-    if (view.phase === 'drawing' && seconds > 0 && seconds <= 5) sfx.hover();
+    if (view.phase === 'drawing' && seconds > 0 && seconds <= 10) sfx.hover();
   }, [seconds, view.phase]);
+
+  // Your turn to draw, and the end of the game, shouldn't pass unnoticed.
+  useEffect(() => {
+    if (view.phase === 'choosing' && drawing) {
+      sfx.open();
+      buzz(30);
+    }
+    if (view.phase === 'over') sfx.launch();
+  }, [view.phase, drawing, view.round]);
 
   const headline =
     view.phase === 'drawing'
@@ -319,6 +381,11 @@ function Table({ room, view, chat, choices, ink, inkTick, onExit }: TableProps) 
       : view.phase === 'choosing'
         ? `${drawer?.name ?? 'Someone'} is choosing`
         : '';
+
+  const tied = ranked.length > 1 && ranked[0].score === ranked[1].score;
+  const gains = ranked.filter((p) => view.gained[p.id] > 0).sort((a, b) => view.gained[b.id] - view.gained[a.id]);
+  // How long the word is: "6", or "4 + 8" for two words.
+  const letters = view.mask.split(' ').filter(Boolean).map((w) => w.length).join(' + ');
 
   const send = (e: React.FormEvent) => {
     e.preventDefault();
@@ -338,9 +405,12 @@ function Table({ room, view, chat, choices, ink, inkTick, onExit }: TableProps) 
           <span className="dr-label">
             Round {view.round} of {view.rounds} · {headline}
           </span>
-          <strong className="dr-mask" aria-live="polite">
-            {drawing && view.phase === 'drawing' ? room.secretWord : view.mask.split('').join(' ')}
-          </strong>
+          <div className="dr-mask-row">
+            <strong className="dr-mask" aria-live="polite">
+              {drawing && view.phase === 'drawing' ? room.secretWord : view.mask.split('').join(' ')}
+            </strong>
+            {view.phase === 'drawing' && !drawing && <span className="dr-count">{letters}</span>}
+          </div>
         </div>
         <span className={`dr-clock${seconds <= 10 && view.phase === 'drawing' ? ' is-low' : ''}`} role="timer">
           {seconds}
@@ -348,11 +418,11 @@ function Table({ room, view, chat, choices, ink, inkTick, onExit }: TableProps) 
       </header>
 
       <div className="dr-stage">
-        <Sheet room={room} drawing={drawing && view.phase === 'drawing'} color={color} size={size} ink={ink} inkTick={inkTick} />
+        <Sheet room={room} drawing={drawing && view.phase === 'drawing'} color={erasing ? PAPER : color} size={erasing ? size * 2 : size} ink={ink} inkTick={inkTick} />
 
         {view.phase === 'choosing' && drawing && (
           <div className="dr-cover">
-            <p className="dr-cover-title">Pick a word to draw</p>
+            <p className="dr-cover-title">Your turn! Pick a word</p>
             <div className="dr-picks">
               {choices.map((w) => (
                 <button
@@ -381,19 +451,34 @@ function Table({ room, view, chat, choices, ink, inkTick, onExit }: TableProps) 
           <div className="dr-cover">
             <p className="dr-label">The word was</p>
             <p className="dr-cover-word">{view.word ?? '…'}</p>
+            {gains.length > 0 ? (
+              <ul className="dr-gains">
+                {gains.map((p) => (
+                  <li key={p.id}>
+                    <span>{p.name}</span>
+                    <strong>+{view.gained[p.id]}</strong>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="dr-lead">Nobody got this one.</p>
+            )}
           </div>
         )}
         {view.phase === 'over' && (
           <div className="dr-cover dr-final">
-            <p className="dr-cover-word">{ranked[0]?.name ?? 'Nobody'} wins!</p>
-            <ol className="dr-final-list">
-              {ranked.map((p) => (
-                <li key={p.id}>
-                  <span>{p.name}</span>
-                  <strong>{p.score}</strong>
-                </li>
-              ))}
-            </ol>
+            <p className="dr-cover-title">{tied ? 'It’s a tie!' : `${ranked[0]?.name ?? 'Nobody'} wins!`}</p>
+            <Podium ranked={ranked} />
+            {ranked.length > 3 && (
+              <ol className="dr-final-list" start={4}>
+                {ranked.slice(3).map((p) => (
+                  <li key={p.id}>
+                    <span>{p.name}</span>
+                    <strong>{p.score}</strong>
+                  </li>
+                ))}
+              </ol>
+            )}
             {room.isHost ? (
               <button type="button" className="wp-play" onClick={() => room.playAgain()}>
                 Play again
@@ -416,16 +501,28 @@ function Table({ room, view, chat, choices, ink, inkTick, onExit }: TableProps) 
 
       {drawing && view.phase === 'drawing' ? (
         <div className="dr-tools" role="toolbar" aria-label="Drawing tools">
+          <div className="dr-ticker" aria-live="polite">
+            {chat.length === 0 && <p className="dr-line is-info">Guesses appear here.</p>}
+            {chat.slice(-2).map((line, i) => (
+              <p key={chat.length - i} className={`dr-line is-${line.kind}`}>
+                {line.name && <b>{line.name} </b>}
+                {line.text}
+              </p>
+            ))}
+          </div>
           <div className="dr-colors">
             {COLORS.map((c) => (
               <button
                 key={c}
                 type="button"
-                className={`dr-color${c === color ? ' is-on' : ''}`}
+                className={`dr-color${c === color && !erasing ? ' is-on' : ''}`}
                 style={{ background: c }}
                 aria-label={`Use colour ${c}`}
-                aria-pressed={c === color}
-                onClick={() => setColor(c)}
+                aria-pressed={c === color && !erasing}
+                onClick={() => {
+                  setColor(c);
+                  setErasing(false);
+                }}
               />
             ))}
           </div>
@@ -435,6 +532,9 @@ function Table({ room, view, chat, choices, ink, inkTick, onExit }: TableProps) 
                 <span style={{ width: s, height: s }} />
               </button>
             ))}
+            <button type="button" className={`dr-btn${erasing ? ' is-on' : ''}`} aria-pressed={erasing} onClick={() => setErasing((on) => !on)}>
+              Eraser
+            </button>
             <button type="button" className="dr-btn" onClick={() => room.draw({ k: 'undo' })}>
               Undo
             </button>

@@ -39,9 +39,19 @@ export function paint(g: CanvasRenderingContext2D, stroke: Stroke, from = 0): vo
     g.fill();
     return;
   }
-  const start = Math.max(0, from - 2);
+  // Curves through the midpoints between points, so a quick stroke comes out smooth, not jagged.
+  const n = p.length / 2;
+  const mid = (i: number, axis: 0 | 1) => (p[i * 2 + axis] + p[i * 2 + 2 + axis]) / 2;
+  // More of a stroke picks up where the last curve ended; the very start needs its first half-step.
+  const first = Math.max(1, from / 2 - 1);
   g.beginPath();
-  g.moveTo(p[start], p[start + 1]);
-  for (let i = start + 2; i < p.length; i += 2) g.lineTo(p[i], p[i + 1]);
+  if (from >= 4) {
+    g.moveTo(mid(first - 1, 0), mid(first - 1, 1));
+  } else {
+    g.moveTo(p[0], p[1]);
+    g.lineTo(mid(0, 0), mid(0, 1));
+  }
+  for (let i = first; i < n - 1; i++) g.quadraticCurveTo(p[i * 2], p[i * 2 + 1], mid(i, 0), mid(i, 1));
+  g.lineTo(p[n * 2 - 2], p[n * 2 - 1]);
   g.stroke();
 }

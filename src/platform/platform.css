@@ -90,16 +90,167 @@ body {
 }
 
 
+.wp-intro.is-welcome .wp-intro-video,
+.wp-intro.is-splash .wp-intro-video {
+  visibility: hidden;
+}
+
+/* Tap to start stands on its own, whatever frame the film stopped on. */
+.wp-intro.is-hold,
+.wp-intro.is-out {
+  background: var(--wp-l0);
+}
+
+.wp-intro.is-hold .wp-intro-video,
+.wp-intro.is-out .wp-intro-video {
+  opacity: 0;
+  transition: opacity 0.16s linear;
+}
+
+.wp-credit {
+  position: absolute;
+  right: 0;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  left: 0;
+  z-index: 2;
+  color: var(--wp-muted);
+  font-family: 'Orbitron', var(--wp-font);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-align: center;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.wp-credit p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.wp-credit strong {
+  color: var(--wp-accent);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+/* Before the film: the offer to add it to the Home Screen. */
+.wp-welcome {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  padding: max(16px, env(safe-area-inset-top)) 20px calc(64px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  text-align: center;
+}
+
+.wp-welcome-volume {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--wp-accent);
+  font-weight: 700;
+  text-align: left;
+  border: 1px solid var(--wp-accent);
+}
+
+.wp-welcome-volume svg {
+  flex: none;
+}
+
+.wp-welcome-title {
+  margin: 8px 0 0;
+  font-family: var(--wp-head);
+  font-size: clamp(28px, 8vw, 36px);
+  font-weight: 400;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.wp-welcome-lead {
+  margin: 0;
+  color: var(--wp-muted);
+}
+
+.wp-welcome-steps {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  list-style: none;
+  counter-reset: step;
+  background: var(--wp-l1);
+  border: 1px solid var(--wp-edge);
+}
+
+.wp-welcome-steps li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 12px;
+  counter-increment: step;
+}
+
+.wp-welcome-steps li + li {
+  border-top: 1px solid var(--wp-edge);
+}
+
+.wp-welcome-steps li::before {
+  content: counter(step);
+  flex: none;
+  color: var(--wp-accent);
+  font-family: var(--wp-head);
+  font-size: 18px;
+}
+
+.wp-welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.wp-welcome-later {
+  min-height: 48px;
+  color: var(--wp-text);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  background: var(--wp-l3);
+  border: 1px solid var(--wp-edge);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.wp-welcome-later:focus-visible,
+.wp-welcome .wp-play:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
 .wp-intro-title {
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: clamp(20px, 6dvh, 56px);
   width: 100%;
-  padding: 16px 16px max(9dvh, calc(env(safe-area-inset-bottom) + 20px));
+  padding: 16px 16px calc(56px + env(safe-area-inset-bottom));
+  overflow: hidden;
   background: none;
   border: 0;
   cursor: pointer;
@@ -107,9 +258,126 @@ body {
   touch-action: manipulation;
 }
 
+.wp-intro-title {
+  animation: wp-shake 0.36s linear 0.26s both;
+}
+
 .wp-intro-logo {
+  position: relative;
   width: min(84vw, calc(50dvh * 1.552), 520px);
   height: auto;
+  animation:
+    wp-slam 0.42s cubic-bezier(0.5, 0, 0.3, 1) both,
+    wp-breathe 3.2s ease-in-out 0.9s infinite;
+}
+
+/* Two blades cut across as the logo lands, then a flash of the impact. */
+.wp-slash {
+  position: absolute;
+  top: 44%;
+  left: -30%;
+  width: 160%;
+  height: 12px;
+  background: var(--wp-accent);
+  transform: rotate(-11deg) translateX(-110%);
+  animation: wp-slash 0.5s cubic-bezier(0.7, 0, 0.2, 1) 0.16s both;
+}
+
+.wp-slash.is-low {
+  top: 56%;
+  height: 5px;
+  background: var(--wp-text);
+  animation-delay: 0.22s;
+}
+
+.wp-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  animation: wp-flash 0.34s ease-out 0.26s both;
+}
+
+@keyframes wp-slam {
+  0% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+
+  62% {
+    opacity: 1;
+    transform: scale(0.94);
+  }
+
+  82% {
+    transform: scale(1.03);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes wp-breathe {
+  50% {
+    transform: scale(1.025);
+  }
+}
+
+@keyframes wp-slash {
+  from {
+    transform: rotate(-11deg) translateX(-110%);
+  }
+
+  to {
+    transform: rotate(-11deg) translateX(110%);
+  }
+}
+
+@keyframes wp-flash {
+  from {
+    opacity: 0.55;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes wp-shake {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+
+  20% {
+    transform: translate(-7px, 5px);
+  }
+
+  40% {
+    transform: translate(6px, -4px);
+  }
+
+  60% {
+    transform: translate(-4px, 3px);
+  }
+
+  80% {
+    transform: translate(2px, -1px);
+  }
+}
+
+@keyframes wp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .wp-intro-prompt {
@@ -122,7 +390,9 @@ body {
   text-transform: uppercase;
   background: var(--wp-accent);
   clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
-  animation: wp-pulse 1.5s ease-in-out infinite;
+  animation:
+    wp-rise 0.3s ease-out 0.5s both,
+    wp-pulse 1.5s ease-in-out 0.9s infinite;
 }
 
 .wp-intro-title:focus-visible .wp-intro-prompt {
@@ -254,50 +524,6 @@ body {
 .wp-top-actions {
   display: flex;
   gap: 8px;
-}
-
-/* The offer to install, once, under the header. */
-.wp-install {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 12px;
-  padding: 10px 12px;
-  background: var(--wp-l2);
-  border: 1px solid var(--wp-edge);
-}
-
-.wp-install p {
-  flex: 1 1 200px;
-  margin: 0;
-}
-
-.wp-install-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.wp-install-go,
-.wp-install-no {
-  min-height: 44px;
-  padding: 0 14px;
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 700;
-  border: 0;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.wp-install-go {
-  color: var(--wp-on-accent);
-  background: var(--wp-accent);
-}
-
-.wp-install-no {
-  color: var(--wp-text);
-  background: var(--wp-l3);
 }
 
 /* The featured games: a row that snaps, so a finger can swipe it. */
@@ -712,32 +938,192 @@ body {
 .wp-loading {
   position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
   background: var(--wp-l0);
 }
 
-/* A picture puzzle on grey paper, for Guess the Movie Title's card. */
-.wp-puzzle-art {
-  display: flex;
-  flex-wrap: wrap;
-  align-content: center;
-  align-items: center;
-  justify-content: center;
-  gap: 4px 12px;
-  height: 100%;
-  font-size: clamp(44px, 15vw, 68px);
-  line-height: 1.1;
-  background: #b9b9b9;
+/* The loader everywhere something is on its way: a bar sweeping across. */
+.wp-loader {
+  position: relative;
+  display: block;
+  width: min(46vw, 200px);
+  height: 3px;
+  overflow: hidden;
+  background: var(--wp-l3);
 }
 
-.wp-puzzle-art small {
-  flex-basis: 100%;
-  color: #262626;
+.wp-loader::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: var(--wp-accent);
+  animation: wp-sweep 1.1s ease-in-out infinite;
+}
+
+.wp-loader.is-dark {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.wp-loader.is-dark::after {
+  background: var(--wp-on-accent);
+}
+
+@keyframes wp-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.wp-splash {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  background: var(--wp-l0);
+}
+
+.wp-film-loader {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Guess the Movie Title's card: a film strip turning in a ring, in front of cinema curtains. */
+.wp-reel {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  container-type: size;
+  background:
+    linear-gradient(transparent 62%, #0f1115 100%),
+    repeating-linear-gradient(90deg, #5c101d 0 5%, #7f1a2b 5% 8%, #470b16 8% 13%);
+}
+
+.wp-reel-beam {
+  position: absolute;
+  top: -10%;
+  left: 50%;
+  width: 62cqmin;
+  height: 130%;
+  background: rgba(255, 226, 170, 0.1);
+  clip-path: polygon(44% 0, 56% 0, 100% 100%, 0 100%);
+  transform: translateX(-50%) rotate(16deg);
+  transform-origin: top;
+  animation: wp-reel-beam 7s ease-in-out infinite alternate;
+}
+
+.wp-reel-beam.is-left {
+  transform: translateX(-50%) rotate(-16deg);
+  animation-direction: alternate-reverse;
+}
+
+.wp-reel-scene {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding-bottom: 10cqmin;
+  perspective: 190cqmin;
+}
+
+.wp-reel-ring {
+  position: relative;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  animation: wp-reel-spin 18s linear infinite;
+}
+
+.wp-reel-frame {
+  position: absolute;
+  top: -25cqmin;
+  left: -17.5cqmin;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 35cqmin;
+  height: 50cqmin;
+  font-size: 19cqmin;
+  line-height: 1;
+  background: #efe6d3;
+  border-block: 7cqmin solid #14100c;
+  backface-visibility: hidden;
+  transform: rotateY(calc(var(--i) * 45deg)) translateZ(42.2cqmin);
+}
+
+.wp-reel-frame.is-ask {
+  color: var(--wp-on-accent);
+  font-family: var(--wp-head);
+  font-size: 26cqmin;
+  background: var(--wp-accent);
+}
+
+/* The strip's far side, seen from inside the ring. */
+.wp-reel-frame.is-back {
+  background: #231a14;
+  transform: rotateY(calc(var(--i) * 45deg)) translateZ(42cqmin) rotateY(180deg);
+}
+
+/* Sprocket holes along both edges. */
+.wp-reel-frame::before,
+.wp-reel-frame::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 3cqmin;
+  background: repeating-linear-gradient(90deg, transparent 0 1.6cqmin, #f2f0ea 1.6cqmin 4.4cqmin, transparent 4.4cqmin 5.83cqmin);
+}
+
+.wp-reel-frame::before {
+  top: -5cqmin;
+}
+
+.wp-reel-frame::after {
+  bottom: -5cqmin;
+}
+
+.wp-reel-tag {
+  position: absolute;
+  bottom: 6px;
+  left: 0;
+  width: 100%;
+  margin: 0;
+  color: #fff;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-align: center;
+}
+
+@keyframes wp-reel-spin {
+  from {
+    transform: rotateX(-12deg) rotateY(0deg);
+  }
+
+  to {
+    transform: rotateX(-12deg) rotateY(-360deg);
+  }
+}
+
+@keyframes wp-reel-beam {
+  to {
+    opacity: 0.4;
+  }
 }
 
 .wp-art-pen-a {
@@ -855,16 +1241,79 @@ body {
   }
 
   .wp-intro-title {
-    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    gap: 12px;
+    padding-bottom: calc(30px + env(safe-area-inset-bottom));
+  }
+
+  .wp-credit {
+    display: flex;
+    gap: 16px;
+    align-items: baseline;
+    justify-content: center;
+    bottom: max(6px, env(safe-area-inset-bottom));
+  }
+
+  .wp-welcome {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-auto-rows: min-content;
+    align-content: center;
+    gap: 6px 20px;
+    max-width: 720px;
+    padding-bottom: calc(34px + env(safe-area-inset-bottom));
+    text-align: left;
+  }
+
+  .wp-welcome-title,
+  .wp-welcome-lead,
+  .wp-welcome-volume {
+    grid-column: 1;
+  }
+
+  .wp-welcome-steps {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+  }
+
+  .wp-welcome-actions {
+    grid-row: 3;
+    grid-column: 2;
+  }
+
+  .wp-welcome-title {
+    margin: 0;
+    font-size: 26px;
+  }
+
+  .wp-welcome-steps li {
+    padding: 4px 10px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .wp-loader::after {
+    width: 100%;
+    opacity: 0.6;
+    animation: none;
+  }
+
+  .wp-intro-title,
+  .wp-intro-logo,
+  .wp-reel-ring,
   .wp-intro-prompt,
   .wp-art-pen-a,
   .wp-art-pen-b,
   .wp-art-spark {
     animation: none;
+  }
+
+  .wp-slash,
+  .wp-flash {
+    display: none;
+  }
+
+  .wp-reel-ring {
+    transform: rotateX(-12deg) rotateY(-20deg);
   }
 
   .wp-art-spark {

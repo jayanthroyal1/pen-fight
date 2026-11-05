@@ -6,21 +6,26 @@ featured game and tiles for each genre (Action, Adventure, Office, Simulation, P
 the site opens and ends on "Tap to start". Browsers refuse sound before a tap, so it may start silent, with a
 Sound on button.
 
-Games: Wolf Run (Action), an endless one-tap runner whose rules are in `src/runnerGame/sim.ts`, with a shared
+Games: Wolf Run (Action), an endless one-tap runner whose rules are in `src/runnerGame/sim.ts` (how the wolf
+moves on screen is in `src/runnerGame/rig.ts` and never changes the game), with a shared
 top-scores table (run `supabase/wolf_run_scores.sql` once in the Supabase SQL Editor to switch it on); Pen Fight
 (Action, Online); and Guess the Movie Title (Friday Fun, inside Office), a picture puzzle where three or
 more small pictures point to a Telugu movie and the player picks its title from four. Add movies in
 `src/movieGame/movies.ts`; Hindi, Tamil and English are listed as coming soon until they have movie lists.
 Doodle Rush (Online, Puzzle, and Friday Fun in Office) is a draw-and-guess game for 2 to 8 players in online
 rooms: `src/drawGame/rules.ts` holds the rules, and the room's first player runs them for everyone over
-Supabase Realtime, passing the job on if they leave. It needs the same Supabase settings as online Pen Fight.
+Supabase Realtime, passing the job on if they leave. The host picks the rounds and drawing time in the lobby.
+It needs the same Supabase settings as online Pen Fight.
 
 - `src/platform/` is the shell: `catalog.ts` lists genres and games (add a game here), `stage.ts` is the
   3D background, `Intro.tsx`, `Pages.tsx` and `Platform.tsx` are the screens, using Motion for animation.
 - Only the shell loads first. A game is its own download, fetched in the background once the landing page
   is up, and the 3D background is freed before a game starts.
 - Full screen: on Android the first tap hides the browser's bars, with a switch in the header. iPhones don't
-  allow that, so the landing page offers Add to Home Screen once; installed, it opens with no bars on any phone.
+  allow that, so a welcome screen offers Add to Home Screen before the intro. Installed, it opens with no bars
+  on any phone, shows a splash screen instead, and never offers it again on that device. iPhone launch images
+  are in `public/brand/splash/`. The logo stays hidden until the intro film reveals it, and Tap to start always
+  draws its own logo, so it can't land on a dark film frame.
 - It adapts: phones get fewer points and a capped frame rate, and it lowers its resolution if frames run
   slow. With reduced motion or Data Saver there is no film and no 3D, and without WebGL no 3D: the same pages
   run on a plain background. `?stage=off` shows that version.

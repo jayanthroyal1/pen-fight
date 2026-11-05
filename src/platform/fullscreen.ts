@@ -5,7 +5,7 @@
  */
 
 const OFF_KEY = 'wildplayers:fullscreen-off';
-const INSTALL_DISMISSED_KEY = 'wildplayers:install-dismissed';
+const INSTALLED_KEY = 'wildplayers:installed';
 
 /** iPads report themselves as Macs, so touch points tell them apart. */
 export const isIosDevice = (userAgent: string, platform: string, touchPoints: number) =>
@@ -90,11 +90,23 @@ export const onInstallChange = (f: () => void) => {
   return () => void installListeners.delete(f);
 };
 
-/** What to offer: an Install button, the iPhone's steps, or nothing. */
-export function installOffer(): 'button' | 'steps' | null {
-  if (isInstalled || recall(INSTALL_DISMISSED_KEY)) return null;
+/** Added to the Home Screen on this device, even if this visit is in the browser. */
+export const wasInstalled = () => isInstalled || recall(INSTALLED_KEY);
+
+if (hasWindow) {
+  // Opening the installed app, or installing it, means never offering it again here.
+  if (isInstalled) remember(INSTALLED_KEY, true);
+  window.addEventListener('appinstalled', () => {
+    remember(INSTALLED_KEY, true);
+    installListeners.forEach((f) => f());
+  });
+}
+
+/** How this device adds the site to its Home Screen: a real button, the iPhone's steps, or the browser's menu. */
+export function installOffer(): 'button' | 'ios' | 'menu' | null {
+  if (wasInstalled()) return null;
   if (installEvent) return 'button';
-  return isIos ? 'steps' : null;
+  return isIos ? 'ios' : 'menu';
 }
 
 export async function install(): Promise<void> {
@@ -102,10 +114,7 @@ export async function install(): Promise<void> {
   if (!event) return;
   installEvent = null;
   await event.prompt();
-  installListeners.forEach((f) => f());
-}
-
-export function dismissInstall(): void {
-  remember(INSTALL_DISMISSED_KEY, true);
+  const { outcome } = await event.userChoice;
+  if (outcome === 'accepted') remember(INSTALLED_KEY, true);
   installListeners.forEach((f) => f());
 }

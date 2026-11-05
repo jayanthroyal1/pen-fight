@@ -123,13 +123,14 @@
 
 /* The puzzle: stickers on a sheet of grey paper. */
 .mg-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 10px;
   min-height: 190px;
-  padding: 18px 10px 12px;
+  padding: 54px 10px 12px;
   background: #b9b9b9;
 }
 
@@ -152,6 +153,132 @@
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.16em;
+}
+
+.mg-expand {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 10px;
+  color: var(--wp-text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  background: var(--wp-l1);
+  border: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* The puzzle alone, filling the screen. It stacks on a tall sheet and lines up on a wide one. */
+.mg-big {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  overflow: hidden;
+  background: #b9b9b9;
+  animation: mg-big-in 0.2s ease-out both;
+}
+
+.mg-big-sheet {
+  position: absolute;
+  inset: 0;
+  container-type: size;
+}
+
+.mg-big-sheet.is-turned {
+  top: 50%;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  width: 100dvh;
+  height: 100dvw;
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.mg-big-items {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2cqh;
+  width: 100cqw;
+  height: 100cqh;
+  padding-bottom: 6cqh;
+  box-sizing: border-box;
+}
+
+.mg-big-item {
+  display: block;
+  font-size: min(calc(76cqh / var(--n) / 1.2), 62cqw);
+  line-height: 1.15;
+  animation: mg-pop 0.34s cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+
+.mg-big-tag {
+  position: absolute;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  left: 0;
+  width: 100%;
+  text-align: center;
+}
+
+@container (min-aspect-ratio: 1 / 1) {
+  .mg-big-items {
+    flex-direction: row;
+    gap: 2cqw;
+  }
+
+  .mg-big-item {
+    font-size: min(calc(84cqw / var(--n) / 1.3), 70cqh);
+  }
+}
+
+.mg-big-tools {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  right: max(8px, env(safe-area-inset-right));
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+}
+
+.mg-big-btn {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  color: var(--wp-text);
+  background: var(--wp-l1);
+  border: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+@keyframes mg-big-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+@keyframes mg-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4) rotate(-10deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mg-big,
+  .mg-big-item {
+    animation: none;
+  }
 }
 
 .mg-clue-row {
@@ -256,6 +383,7 @@
   font-size: 18px;
 }
 
+.mg-big-btn:focus-visible,
 .mg-root button:focus-visible {
   outline: 2px solid #fff;
   outline-offset: 2px;
