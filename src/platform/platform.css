@@ -1,0 +1,603 @@
+/*
+ * WildPlayers, the platform around the games. Mobile first: the base styles are for a
+ * phone, and wider screens are added on top. Colours come from the logo.
+ */
+.wp-root,
+.wp-intro,
+.wp-wipe,
+.wp-loading {
+  --wp-sky: #0b1c2b;
+  --wp-panel: #12293c;
+  --wp-panel-2: #183449;
+  --wp-orange: #ff7a1a;
+  --wp-orange-hot: #ffa45c;
+  --wp-text: #f2f6f9;
+  --wp-muted: #a9bccb;
+  --wp-line: rgba(255, 255, 255, 0.14);
+  --wp-font: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+  --wp-space: 16px;
+  box-sizing: border-box;
+  color: var(--wp-text);
+  font-family: var(--wp-font);
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.wp-root *,
+.wp-root *::before,
+.wp-root *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #0b1c2b;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wp-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  /* Stands in for the 3D where it can't run; the canvas covers it where it can. */
+  background:
+    radial-gradient(90% 60% at 80% 0%, rgba(255, 122, 26, 0.2), transparent 70%),
+    radial-gradient(80% 50% at 0% 100%, rgba(63, 140, 255, 0.16), transparent 70%),
+    var(--wp-sky);
+}
+
+.wp-stage-host,
+.wp-stage,
+.wp-vignette {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.wp-stage {
+  display: block;
+}
+
+.wp-vignette {
+  background: radial-gradient(ellipse at 50% 40%, transparent 45%, rgba(4, 12, 20, 0.6) 100%);
+  pointer-events: none;
+}
+
+/* The intro */
+.wp-intro {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  outline: none;
+  touch-action: manipulation;
+}
+
+.wp-intro-logo {
+  width: min(84vw, calc(50dvh * 1.552), 520px);
+  height: auto;
+  will-change: transform, opacity;
+}
+
+.wp-intro-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, #fff3e6, var(--wp-orange) 45%, transparent 75%);
+  pointer-events: none;
+}
+
+.wp-intro-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 60vmin;
+  height: 60vmin;
+  margin: -30vmin 0 0 -30vmin;
+  border: 3px solid var(--wp-orange-hot);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.wp-intro-foot {
+  position: absolute;
+  right: 0;
+  bottom: max(9dvh, calc(env(safe-area-inset-bottom) + 24px));
+  left: 0;
+  display: block;
+  text-align: center;
+}
+
+.wp-intro-prompt {
+  display: inline-block;
+  padding: 10px 26px;
+  color: #10202e;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: var(--wp-orange);
+  clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+  animation: wp-pulse 1.5s ease-in-out infinite;
+}
+
+.wp-intro-skip {
+  color: var(--wp-muted);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.wp-intro:focus-visible .wp-intro-prompt {
+  outline: 2px solid #fff;
+  outline-offset: 4px;
+}
+
+@keyframes wp-pulse {
+  50% {
+    filter: brightness(1.25);
+    transform: scale(1.05);
+  }
+}
+
+/* Pages */
+.wp-page {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.wp-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: max(12px, env(safe-area-inset-top)) max(var(--wp-space), env(safe-area-inset-right))
+    max(32px, env(safe-area-inset-bottom)) max(var(--wp-space), env(safe-area-inset-left));
+}
+
+.wp-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+}
+
+.wp-top-logo {
+  width: auto;
+  height: 60px;
+}
+
+.wp-icon-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  color: var(--wp-text);
+  background: rgba(18, 41, 60, 0.82);
+  border: 1px solid var(--wp-line);
+  border-radius: 12px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.wp-hero-title {
+  margin: 0;
+  font-size: clamp(30px, 9vw, 60px);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+
+.wp-hero-title em {
+  display: block;
+  color: var(--wp-orange);
+  font-style: normal;
+}
+
+.wp-section {
+  margin: 4px 0 12px;
+  color: var(--wp-muted);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* A game's card */
+.wp-game {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(18, 41, 60, 0.92);
+  border: 1px solid var(--wp-line);
+  border-radius: 18px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+}
+
+.wp-game-art {
+  aspect-ratio: 320 / 170;
+  overflow: hidden;
+}
+
+.wp-pen-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.wp-game-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--wp-space);
+}
+
+.wp-game-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.wp-game-tag {
+  margin: 0;
+  color: var(--wp-muted);
+}
+
+.wp-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wp-facts li {
+  padding: 2px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--wp-panel-2);
+  border-radius: 999px;
+}
+
+.wp-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 54px;
+  padding: 0 24px;
+  color: #10202e;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, var(--wp-orange-hot), var(--wp-orange));
+  border: 0;
+  border-radius: 12px;
+  box-shadow: 0 8px 22px rgba(255, 122, 26, 0.36);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* Genre tiles: two across on a phone */
+.wp-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.wp-tile {
+  --accent: var(--wp-orange);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  width: 100%;
+  aspect-ratio: 1 / 1.02;
+  padding: 12px;
+  overflow: hidden;
+  color: var(--wp-text);
+  font-family: inherit;
+  text-align: left;
+  background: var(--wp-panel);
+  background: linear-gradient(155deg, color-mix(in srgb, var(--accent) 42%, var(--wp-panel)), var(--wp-panel) 72%);
+  border: 1px solid var(--wp-line);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  touch-action: manipulation;
+  transform-style: preserve-3d;
+}
+
+.wp-tile-art {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 58%;
+  color: var(--accent);
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.4));
+  transform: translateZ(30px);
+}
+
+.wp-genre-art {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.wp-tile-name {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-transform: uppercase;
+  transform: translateZ(18px);
+}
+
+.wp-tile-count {
+  color: var(--wp-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.wp-tile-count.has-games {
+  color: var(--wp-text);
+}
+
+/* A genre's page */
+.wp-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  background: var(--wp-panel);
+  background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 42%, var(--wp-panel)), var(--wp-panel) 80%);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 16px;
+}
+
+.wp-banner-art {
+  flex: none;
+  width: 76px;
+  color: var(--accent);
+}
+
+.wp-banner-title {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.wp-banner-tag {
+  margin: 2px 0 0;
+  color: var(--wp-muted);
+}
+
+.wp-games {
+  display: grid;
+  gap: 16px;
+}
+
+.wp-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px var(--wp-space);
+  background: rgba(18, 41, 60, 0.92);
+  border: 1px dashed var(--wp-line);
+  border-radius: 16px;
+}
+
+.wp-empty-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.wp-empty p {
+  margin: 0;
+  color: var(--wp-muted);
+}
+
+/* Starting a game */
+.wp-wipe {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #10202e;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: linear-gradient(160deg, var(--wp-orange-hot), var(--wp-orange) 60%, #c94f06);
+}
+
+.wp-wipe img {
+  width: min(46vw, 220px);
+  height: auto;
+  filter: brightness(0) saturate(100%) invert(9%) sepia(20%) saturate(1800%) hue-rotate(170deg);
+}
+
+.wp-loading {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--wp-sky);
+}
+
+.wp-art-pen-a {
+  animation: wp-clash-a 2.8s ease-in-out infinite;
+}
+
+.wp-art-pen-b {
+  animation: wp-clash-b 2.8s ease-in-out infinite;
+}
+
+.wp-art-spark {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: wp-spark 2.8s ease-in-out infinite;
+}
+
+.wp-art-glow {
+  animation: wp-glow 2.8s ease-in-out infinite;
+}
+
+@keyframes wp-clash-a {
+  0%, 100% { transform: translate(-16px, 7px); }
+  46% { transform: translate(-22px, 9px); }
+  52% { transform: translate(2px, -1px); }
+  62% { transform: translate(-6px, 2px); }
+}
+
+@keyframes wp-clash-b {
+  0%, 100% { transform: translate(16px, 7px); }
+  46% { transform: translate(22px, 9px); }
+  52% { transform: translate(-2px, -1px); }
+  62% { transform: translate(6px, 2px); }
+}
+
+@keyframes wp-spark {
+  0%, 46% { opacity: 0; transform: scale(0.3) rotate(0deg); }
+  52% { opacity: 1; transform: scale(1.15) rotate(14deg); }
+  78%, 100% { opacity: 0; transform: scale(0.6) rotate(30deg); }
+}
+
+@keyframes wp-glow {
+  0%, 46%, 100% { opacity: 0.25; }
+  52% { opacity: 1; }
+}
+
+.wp-root button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .wp-icon-btn:hover,
+  .wp-tile:hover {
+    border-color: var(--accent, var(--wp-orange));
+  }
+
+  .wp-play:hover {
+    filter: brightness(1.08);
+  }
+}
+
+/* Tablets and up */
+@media (min-width: 700px) {
+  .wp-wrap {
+    gap: 26px;
+    padding-inline: 28px;
+  }
+
+  .wp-top-logo {
+    height: 76px;
+  }
+
+  .wp-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .wp-tile {
+    aspect-ratio: 1.28 / 1;
+    padding: 16px;
+  }
+
+  .wp-tile-art {
+    width: 42%;
+  }
+
+  .wp-tile-name {
+    font-size: 24px;
+  }
+
+  .wp-game {
+    flex-direction: row;
+  }
+
+  .wp-game-art {
+    flex: 1.15;
+    aspect-ratio: auto;
+    min-height: 240px;
+  }
+
+  .wp-pen-art {
+    object-fit: cover;
+  }
+
+  .wp-game-body {
+    flex: 1;
+    justify-content: center;
+    padding: 24px;
+  }
+}
+
+/* Phones held sideways: three tiles across, and a shorter logo. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .wp-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .wp-tile {
+    aspect-ratio: 1.6 / 1;
+  }
+
+  .wp-tile-art {
+    width: 34%;
+  }
+
+  .wp-intro-logo {
+    width: min(70vw, calc(58dvh * 1.552));
+  }
+
+  .wp-intro-foot {
+    bottom: max(6px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wp-intro-prompt,
+  .wp-art-pen-a,
+  .wp-art-pen-b,
+  .wp-art-spark,
+  .wp-art-glow {
+    animation: none;
+  }
+
+  .wp-art-spark {
+    opacity: 1;
+  }
+}

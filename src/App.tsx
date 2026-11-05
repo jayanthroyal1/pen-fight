@@ -46,8 +46,8 @@ const computerPen = (): Loadout => {
   return { model: pool[Math.floor(Math.random() * pool.length)].id, power: null };
 };
 
-/** `physics` resolves once the physics engine has loaded. */
-export function App({ physics }: { physics: Promise<void> }) {
+/** `physics` resolves once the physics engine has loaded; `onExit` goes back to the platform. */
+export function App({ physics, onExit }: { physics: Promise<void>; onExit: () => void }) {
   const profiles = useProfiles();
   const [screen, setScreen] = useState<Screen>({ kind: 'home' });
   const [invite, setInvite] = useState<Invite | null>(openingInvite);
@@ -163,6 +163,7 @@ export function App({ physics }: { physics: Promise<void> }) {
             }
             onStore={() => setScreen({ kind: 'store' })}
             onSettings={() => setScreen({ kind: 'settings' })}
+            onExit={onExit}
           />
         );
       case 'settings':

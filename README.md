@@ -1,12 +1,27 @@
+# WildPlayers
+
+A gaming platform for the browser, built phone-first. It opens with a three.js intro where thousands of
+points pull together into the logo, then one tap flies through it to the landing page: a featured game
+and tiles for each genre (Action, Adventure, Office, Simulation, Puzzle, Online). Sounds are synthesised
+with Web Audio, and browsers only allow them after a first tap, which is why the intro ends on "Tap to enter".
+
+- `src/platform/` is the shell: `catalog.ts` lists genres and games (add a game here), `stage.ts` is the
+  3D background, `Intro.tsx`, `Pages.tsx` and `Platform.tsx` are the screens, using Motion for animation.
+- Only the shell loads first. A game is its own download, fetched in the background once the landing page
+  is up, and the 3D background is freed before a game starts.
+- It adapts: phones get fewer points and a capped frame rate, and it lowers its resolution if frames run
+  slow. With reduced motion, Data Saver or no WebGL there is no 3D, and the same pages run on a CSS
+  background. `?stage=off` shows that version.
+
 # Pen Fight
 
-The classroom desk game in the browser: flick your pen, knock the other pen off the desk, and win
+The first game on the platform. The classroom desk game in the browser: flick your pen, knock the other pen off the desk, and win
 your friend's pen. Pens are 3D bodies simulated with [Rapier](https://rapier.rs) and drawn with three.js
 in a classroom you can almost hear.
 
 ## What's in it
 
-- **Your pencil box.** Every player starts with ₹100 and three random pens (no two players on a phone
+- **Your pencil box.** Every player starts with ₹200 and three random pens (no two players on a phone
   start with the same set). A pencil box holds 5 pens. Broke players get ₹50 pocket money once a day,
   and a free pen if they have none.
 - **Bet rooms.** Each match is best of three for a bet; the winner takes both bets and the loser's pen,
@@ -26,9 +41,10 @@ in a classroom you can almost hear.
   finisher for breaking pens, and +10% power. The heroes are original look-alikes (Green Giant, Web
   Flicker, Steel Comet, Night Wing, Amazon Lasso, Chakra Spin) plus Hanuman Gada, which turns the pen
   into a golden mace.
-- **Super powers.** The lightning button at the bottom of the desk opens and closes the powers. On your
-  turn, use one for your shot; while the other player aims, use one against their shot (one each a shot;
-  tap again to take it back). Every player gets one use free each match, and more can be bought in the
+- **Super powers.** Each player's lightning button floats their powers up; picking one closes the list.
+  On your turn, use one for your shot; while the other player aims, use one against their shot (one each
+  a shot; tap again to take it back). On one phone, player 2's button sits in the opposite corner, turned
+  to face them. Every player gets one use free each match, and more can be bought in the
   store (₹25 to ₹100, one use each):
 
   | Power | Price | What it does |

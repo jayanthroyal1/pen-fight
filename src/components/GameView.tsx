@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { sounds } from '../audio/sounds';
-import { DIFFICULTY, chooseAiBoost, chooseAiShot, type Difficulty } from '../game/ai';
+import { DIFFICULTY, chooseAiBoost, chooseAiShotSoon, type Difficulty } from '../game/ai';
 import type { BoostView } from '../game/boostFx';
-import { BOOSTS, boost as boostOf, isBoostId, type BoostBag, type BoostId } from '../game/boosts';
+import { boost as boostOf, isBoostId, type BoostBag, type BoostId } from '../game/boosts';
 import { MIN_PULL_PX, easeFlick, flickFromPull, pullPixels, pullPower, type Drag } from '../game/aiming';
 import { MAX_IMPULSE, interpolatePen, pointOnPen } from '../game/physics';
 import { isMetalPen, penModel } from '../game/pens';
@@ -34,8 +34,8 @@ import { MatchRecorder } from '../recording/recorder';
 import { SHOT_LABELS, bestShots, isNewBest, type Highlight } from '../recording/highlights';
 import { REPLAY_SPEED, replayPose } from '../recording/replay';
 import { getMatchStore } from '../recording/store';
-import { BoostIcon } from './BoostIcon';
 import { PenBox, PenLabel, PenSwatch, Rupees } from './PenBox';
+import { Powers } from './Powers';
 
 export type Mode = 'local' | 'ai' | 'online';
 
@@ -66,7 +66,8 @@ interface Props {
   onExit: () => void;
 }
 
-const AI_DELAY_MS = 700;
+/** Long enough for the player to use a power against the computer's shot. */
+const AI_DELAY_MS = 1500;
 /** How quickly the shown aim catches up with the pointer (per second). */
 const AIM_EASE = 30;
 /** Slide speed (desk px/s) at which the scrape sound is loudest. */
@@ -175,9 +176,10 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
   const [free, setFree] = useState<[boolean, boolean]>([bags[0] !== null, bags[1] !== null]);
   const freeRef = useRef(free);
   freeRef.current = free;
-  // The list of powers floats up only when the powers button is tapped.
-  const [powersOpen, setPowersOpen] = useState(false);
-  const [boostMsg, setBoostMsg] = useState<string | null>(null);
+  // Each player's list of powers floats up only when their powers button is tapped.
+  const [powersOpen, setPowersOpen] = useState<[boolean, boolean]>([false, false]);
+  const [boostMsg, setBoostMsg] = useState<{ player: PlayerId; text: string } | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const spendRef = useRef(onSpendBoost);
   spendRef.current = onSpendBoost;
 
@@ -272,12 +274,12 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
       }
       const problem = boostProblem(s, player, id);
       if (problem) {
-        if (!fromPeer) setBoostMsg(problem);
+        if (!fromPeer) setBoostMsg({ player, text: problem });
         return false;
       }
       const bag = leftRef.current[player];
       if (!fromPeer && bag && !freeRef.current[player] && (bag[id] ?? 0) <= 0) {
-        setBoostMsg(`You have no ${boostOf(id).name} left. Buy more in the store.`);
+        setBoostMsg({ player, text: `You have no ${boostOf(id).name} left. Buy more in the store.` });
         return false;
       }
       sounds.unlock();
@@ -308,7 +310,8 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
         if (s.defenseThisTurn !== remote.defense) {
           if (s.defenseThisTurn) {
             s = disarmBoost(s, defender);
-            window.setTimeout(() => setBoostMsg('Too late: they had already flicked. Your power is still yours.'), 0);
+            const text = 'Too late: they had already flicked. Your power is still yours.';
+            window.setTimeout(() => setBoostMsg({ player: defender, text }), 0);
           }
           if (remote.defense) s = armBoost(s, defender, remote.defense);
         }
@@ -582,6 +585,7 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
     if (mode !== 'ai' || busy || hud.phase !== 'aim' || hud.turn !== 1) return;
     const { samples, wobble } = DIFFICULTY[difficulty];
     let shotTimer = 0;
+    let cancelled = false;
     const id = window.setTimeout(() => {
       // Sometimes the computer arms a super power first, and gives it a moment to show.
       const bag = leftRef.current[1];
@@ -590,9 +594,13 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
         aiBoostsRef.current -= 1;
         toggleBoost(1, pick);
       }
-      shotTimer = window.setTimeout(() => shoot(chooseAiShot(stateRef.current, 1, { samples, wobble }), false), pick ? 900 : 0);
+      shotTimer = window.setTimeout(async () => {
+        const flick = await chooseAiShotSoon(stateRef.current, 1, { samples, wobble }, () => cancelled);
+        if (flick && !cancelled) shoot(flick, false);
+      }, pick ? 900 : 0);
     }, AI_DELAY_MS);
     return () => {
+      cancelled = true;
       window.clearTimeout(id);
       window.clearTimeout(shotTimer);
     };
@@ -679,8 +687,10 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     sounds.unlock();
-    // Touching the desk to play puts the powers list away.
-    setPowersOpen(false);
+    // Touching the desk to play puts the powers and the menu away.
+    setPowersOpen([false, false]);
+    setBoostMsg(null);
+    setMenuOpen(false);
     if (!canAim() || dragRef.current) return;
     const s = stateRef.current;
     const hit = hitOnScreen(e, s.turn);
@@ -747,30 +757,19 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
   else if (!isHuman(hud.turn)) status = `${names[hud.turn]} is aiming…`;
   else status = 'Press on your pen, pull back and let go.';
   const note = boostNote(hud, (p) => you(p));
-  // The powers panel: the shooter's powers for their shot, the other player's against it.
+  // Each player on this device has their own powers: for their shot, or against the other's.
   const inPlay = !busy && (hud.phase === 'aim' || hud.phase === 'moving') && !peerLeft;
-  const groups = (
-    [
-      { player: hud.turn, role: 'attack' },
-      { player: other(hud.turn), role: 'defend' },
-    ] as const
-  ).filter((g) => left[g.player] !== null && isHuman(g.player));
-  const barOpen = inPlay && groups.length > 0;
-  const canUse = (p: PlayerId, id: BoostId) => free[p] || (left[p]?.[id] ?? 0) > 0;
-  const groupTitle = (g: (typeof groups)[number]) => {
-    if (mode === 'local') return g.role === 'attack' ? `${names[g.player]}: for your shot` : `${names[g.player]}: against ${names[hud.turn]}'s shot`;
-    return g.role === 'attack' ? 'For your shot' : `Against ${names[hud.turn]}'s shot`;
-  };
-  const togglePowers = () => {
-    setPowersOpen(!powersOpen);
+  const seats = ([0, 1] as const).filter((p) => left[p] !== null && isHuman(p));
+  /** On one phone, player 2 sits at the far end and everything of theirs faces them. */
+  const isFar = (p: PlayerId) => mode === 'local' && p === 1;
+  const togglePowers = (p: PlayerId) => {
+    setPowersOpen((open) => (p === 0 ? [!open[0], open[1]] : [open[0], !open[1]]));
     setBoostMsg(null);
   };
   /** Picking a power (or taking it back) closes the list. */
-  const pickPower = (player: PlayerId, id: BoostId) => {
-    if (toggleBoost(player, id)) setPowersOpen(false);
+  const pickPower = (p: PlayerId, id: BoostId) => {
+    if (toggleBoost(p, id)) setPowersOpen((open) => (p === 0 ? [false, open[1]] : [open[0], false]));
   };
-  // The power this device's player has on, shown on the button once the list closes.
-  const chosenHere = groups.map((g) => chosenBoost(hud, g.player)).find((id) => id !== null) ?? null;
 
   const winner = hud.phase === 'matchOver' ? matchWinner(hud) : hud.roundWinner;
   const loser = winner === null ? null : other(winner);
@@ -804,7 +803,19 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
             Best of 3{final && hud.phase !== 'matchOver' ? ' · final round' : ''}
           </span>
         </div>
-        <div className="game-actions">
+        <button
+          type="button"
+          className="menu-btn"
+          aria-expanded={menuOpen}
+          aria-controls="game-menu"
+          aria-label={menuOpen ? 'Close game menu' : 'Open game menu'}
+          onClick={() => setMenuOpen(!menuOpen)}
+        >
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+            <path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+          </svg>
+        </button>
+        <div id="game-menu" className={`game-actions${menuOpen ? ' is-open' : ''}`}>
           <label className="noise-control">
             <span>Class noise</span>
             <input
@@ -828,7 +839,6 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
 
       <p className="status" aria-live="polite">
         {status}
-        {note && <span className="boost-note"> {note}</span>}
       </p>
 
       <div className="desk-wrap">
@@ -844,63 +854,31 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
           }}
         />
 
-        {barOpen && (
-          <div className="powers">
-            {boostMsg && (
-              <p className="power-msg" role="alert">
-                {boostMsg}
-              </p>
-            )}
-            {powersOpen && (
-              <div id="power-panel" className="power-list" role="group" aria-label="Super powers">
-                {hud.phase === 'moving' ? (
-                  <p className="power-head">Powers are used before a flick. Wait for the pens to stop.</p>
-                ) : (
-                  groups.map((g) => (
-                    <div key={g.role} className="power-group">
-                      <p className="power-head">{groupTitle(g)}</p>
-                      {BOOSTS.filter((b) => (g.role === 'attack' ? b.timing !== 'theirs' : b.timing !== 'mine')).map((b, i) => {
-                        const armed = chosenBoost(hud, g.player) === b.id;
-                        return (
-                          <button
-                            key={b.id}
-                            type="button"
-                            className={`power-btn${armed ? ' is-armed' : ''}${!armed && !canUse(g.player, b.id) ? ' is-empty' : ''}`}
-                            style={{ '--boost': b.color, '--i': i } as React.CSSProperties}
-                            aria-pressed={armed}
-                            title={b.tagline}
-                            onClick={() => pickPower(g.player, b.id)}
-                          >
-                            <span className="power-icon">
-                              <BoostIcon id={b.id} />
-                            </span>
-                            <span className="power-name">{b.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-            <button
-              type="button"
-              className={`powers-toggle${powersOpen ? ' is-open' : ''}${chosenHere ? ' is-armed' : ''}`}
-              style={chosenHere ? ({ '--boost': boostOf(chosenHere).color } as React.CSSProperties) : undefined}
-              aria-expanded={powersOpen}
-              aria-controls="power-panel"
-              title={powersOpen ? 'Hide super powers' : chosenHere ? `${boostOf(chosenHere).name} is on` : 'Show super powers'}
-              onClick={togglePowers}
-            >
-              <BoostIcon id={chosenHere ?? 'lightning'} />
-              <span className="visually-hidden">{powersOpen ? 'Hide super powers' : 'Show super powers'}</span>
-            </button>
-          </div>
-        )}
+        {note && <p className="boost-note">{note}</p>}
+
+        {inPlay &&
+          seats.map((p) => (
+            <Powers
+              key={p}
+              id={String(p)}
+              far={isFar(p)}
+              role={p === hud.turn ? 'attack' : 'defend'}
+              title={p === hud.turn ? 'For your shot' : `Against ${names[hud.turn]}'s shot`}
+              moving={hud.phase === 'moving'}
+              chosen={chosenBoost(hud, p)}
+              canUse={(id) => free[p] || (left[p]?.[id] ?? 0) > 0}
+              open={powersOpen[p]}
+              message={boostMsg?.player === p ? boostMsg.text : null}
+              onToggle={() => togglePowers(p)}
+              onPick={(id) => pickPower(p, id)}
+            />
+          ))}
 
         {banner && (
-          <div key={banner.key} className="turn-banner" aria-hidden>
-            {banner.text}
+          <div className={`banner-layer${isFar(hud.turn) ? ' is-far' : ''}`} aria-hidden>
+            <div key={banner.key} className="turn-banner">
+              {banner.text}
+            </div>
           </div>
         )}
         {shout && (

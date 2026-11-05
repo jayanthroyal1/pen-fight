@@ -40,7 +40,7 @@ export function RoomSelect({ title, players, onChoose, onBack }: Props) {
                 </span>
                 <span className="room-name">{room.name}</span>
                 <span className="room-meta">
-                  Level {room.minLevel}+ pens · {room.sound}
+                  Level {room.minLevel}+ pens
                 </span>
                 {problems.map((p) => (
                   <span key={p} className="room-locked">

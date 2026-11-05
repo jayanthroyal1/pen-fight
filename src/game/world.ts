@@ -24,13 +24,18 @@ export async function initPhysics(): Promise<void> {
 
 /** Fixed physics step, shared by live play and the computer's look-ahead. */
 export const DT = 1 / 60;
+/**
+ * Rapier steps per `DT`. A fast pen moves further in a 60 Hz step than a pen is
+ * thick, so at one step it can ride up over the pen it hits instead of pushing it.
+ */
+const SUBSTEPS = 2;
 
 /** Desk pixels per Rapier unit. A 150px pen is 1.5 units long. */
 export const UNITS = 100;
 const S = UNITS;
 const GRAVITY = 30;
 const FRICTION = 0.35;
-const RESTITUTION = 0.3;
+const RESTITUTION = 0.4;
 const LINEAR_DAMPING = 0.4;
 const ANGULAR_DAMPING = 1.5;
 const BEVEL = 3;
@@ -40,6 +45,10 @@ const QUIET_SPEED = 0.03;
 const QUIET_SPIN = 0.05;
 /** Steps in a row that every pen must be still before a shot counts as over. */
 const QUIET_STEPS = 8;
+/** Slope of a pen's length (sine of the angle) past which it counts as tipping. */
+const TIP_SLOPE = 0.08;
+/** Steps a tipping pen is given to finish before the shot ends anyway. */
+const TILT_WAIT_STEPS = 90;
 /** Give up waiting after this many steps (a pen rocking forever, say). */
 const MAX_SHOT_STEPS = 15 / DT;
 /** Contact force below this is a pen just lying or sliding on the desk. */
@@ -90,9 +99,13 @@ export class DeskWorld {
   private zapped = false;
   private quiet = 0;
   private steps = 0;
+  private tiltWait = 0;
 
-  /** `withEvents` collects impacts for sound; the computer's look-ahead leaves it off. */
-  constructor(pens: [Pen, Pen], withEvents = false) {
+  /**
+   * `withEvents` collects impacts for sound; the computer's look-ahead leaves it
+   * off, and uses `coarse` steps too: near enough to judge a shot, and half the work.
+   */
+  constructor(pens: [Pen, Pen], withEvents = false, private coarse = false) {
     if (!R) throw new Error('initPhysics() must finish before creating a DeskWorld');
     this.withEvents = withEvents;
     this.models = pens.map((p) => p.model);
@@ -112,11 +125,15 @@ export class DeskWorld {
     this.build(pens);
   }
 
+  private substeps(): number {
+    return this.coarse ? 1 : SUBSTEPS;
+  }
+
   private build(pens: [Pen, Pen]): void {
     const r = R!;
     const withEvents = this.withEvents;
     this.world = new r.World({ x: 0, y: -GRAVITY, z: 0 });
-    this.world.timestep = DT;
+    this.world.timestep = DT / this.substeps();
     this.events = withEvents ? new r.EventQueue(true) : null;
 
     const desk = this.world.createRigidBody(
@@ -172,6 +189,7 @@ export class DeskWorld {
     this.zapped = false;
     this.quiet = 0;
     this.steps = 0;
+    this.tiltWait = 0;
   }
 
   /**
@@ -239,17 +257,20 @@ export class DeskWorld {
     );
     this.quiet = 0;
     this.steps = 0;
+    this.tiltWait = 0;
   }
 
   step(): void {
-    if (this.events) {
-      this.world.step(this.events);
-      this.collectImpacts(this.events);
-    } else {
-      this.world.step();
+    for (let i = 0; i < this.substeps(); i++) {
+      if (this.events) {
+        this.world.step(this.events);
+        this.collectImpacts(this.events);
+      } else {
+        this.world.step();
+      }
+      if (this.mods.lightning && !this.zapped) this.zapOnContact();
     }
     this.steps++;
-    if (this.mods.lightning && !this.zapped) this.zapOnContact();
 
     let still = true;
     this.bodies.forEach((body, i) => {
@@ -271,6 +292,14 @@ export class DeskWorld {
         !body.isSleeping() &&
         (Math.hypot(v.x, v.y, v.z) > QUIET_SPEED || Math.hypot(w.x, w.y, w.z) > QUIET_SPIN)
       ) {
+        still = false;
+      }
+      // A pen balanced on the edge may be tipping too slowly to count as moving:
+      // let it finish, so it falls in this shot and not at the start of the next.
+      const q = body.rotation();
+      const slope = 2 * (q.x * q.y + q.w * q.z);
+      if (Math.abs(slope) > TIP_SLOPE && this.tiltWait < TILT_WAIT_STEPS) {
+        this.tiltWait++;
         still = false;
       }
     });

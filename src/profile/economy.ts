@@ -72,7 +72,7 @@ function drawStarterSet(rng: Rng): PenModelId[] {
 }
 
 /**
- * A new player: ₹100 and three random pens. `avoid` lists other players'
+ * A new player: ₹200 and three random pens. `avoid` lists other players'
  * collections; the new one never starts with exactly the same pens.
  */
 export function newProfile(name: string, rng: Rng = Math.random, avoid: PenModelId[][] = []): Profile {

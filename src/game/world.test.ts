@@ -126,3 +126,37 @@ describe('the same shot on two devices', () => {
     b.free();
   });
 });
+
+describe('pens hitting pens', () => {
+  it('pushes the other pen instead of riding up over it', () => {
+    let seed = 7;
+    const rng = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 40; i++) {
+      // A hard flick into a pen lying across its path, at a random angle.
+      const world = new DeskWorld(pair(createPen(0, 250, 250, Math.PI / 2), createPen(1, 430, 250, Math.PI / 2 + (rng() - 0.5))), true);
+      world.flick(0, { along: (rng() - 0.5) * 60, ix: 700 + rng() * 300, iy: (rng() - 0.5) * 100 });
+      let peak = 0;
+      while (!world.isSettled()) {
+        world.step();
+        peak = Math.max(peak, ...world.read().map((p) => p.h));
+      }
+      const [, target] = world.read();
+      world.free();
+      expect(peak).toBeLessThan(13);
+      expect(target.x).toBeGreaterThan(430);
+    }
+  });
+
+  it('never leaves a shot unfinished with a pen tipping over the edge', () => {
+    // Slid just far enough to overhang the edge: it goes over in this shot, or stays flat.
+    for (const x of [640, 650, 660, 670, 680]) {
+      const world = new DeskWorld(pair(createPen(0, x, 250, 0), far()));
+      world.flick(0, { along: 0, ix: 330, iy: 0 });
+      world.settle();
+      const [pen] = world.read();
+      world.free();
+      const slope = 2 * (pen.q[0] * pen.q[1] + pen.q[3] * pen.q[2]);
+      expect(pen.out || Math.abs(slope) < 0.08).toBe(true);
+    }
+  });
+});

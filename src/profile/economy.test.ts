@@ -39,9 +39,9 @@ describe('catalog', () => {
 });
 
 describe('newProfile', () => {
-  it('starts with ₹100 and three different pens', () => {
+  it('starts with ₹200 and three different pens', () => {
     const p = newProfile('Ravi', seeded(1));
-    expect(p.rupees).toBe(100);
+    expect(p.rupees).toBe(200);
     expect(p.pens).toHaveLength(3);
     expect(new Set(p.pens.map((x) => x.model)).size).toBe(3);
     expect(p.pens.filter((x) => penModel(x.model).level === 2)).toHaveLength(1);

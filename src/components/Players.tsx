@@ -38,7 +38,7 @@ export function Players({ profiles, activeId, firstRun, onCreate, onChoose, onTe
         <h1 className="label-title">{firstRun ? 'New notebook' : 'Players'}</h1>
         <p className="label-note">
           {firstRun
-            ? 'Every new player gets ₹100 and three pens to start.'
+            ? 'Every new player gets ₹200 and three pens to start.'
             : 'Each player keeps their own money and pencil box.'}
         </p>
       </header>

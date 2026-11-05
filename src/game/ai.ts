@@ -48,15 +48,19 @@ export interface AiOptions {
   wobble?: number;
 }
 
+/** Shots tried between breaths, so the screen keeps moving while the computer thinks. */
+const SAMPLES_PER_SLICE = 6;
+
 /**
  * Picks a shot by trying many random flicks aimed roughly at the opponent,
  * simulating each to rest in Rapier and keeping the one that ends best for `me`.
+ * Yields every few shots; `chooseAiShot` runs it straight through.
  */
-export function chooseAiShot(state: GameState, me: PlayerId, opts: AiOptions = {}): Flick {
+function* searchShot(state: GameState, me: PlayerId, opts: AiOptions): Generator<void, Flick> {
   const { rng = Math.random, samples = 60, wobble = 0.05 } = opts;
   const mine = state.pens[me];
   const theirs = state.pens[me === 0 ? 1 : 0];
-  const world = new DeskWorld(state.pens);
+  const world = new DeskWorld(state.pens, false, true);
   world.setMods(shotMods(state, me), me);
 
   let best: Flick = { along: 0, ix: 0, iy: 0 };
@@ -74,6 +78,7 @@ export function chooseAiShot(state: GameState, me: PlayerId, opts: AiOptions = {
         bestScore = score;
         best = flick;
       }
+      if (i % SAMPLES_PER_SLICE === SAMPLES_PER_SLICE - 1) yield;
     }
   } finally {
     world.free();
@@ -83,6 +88,36 @@ export function chooseAiShot(state: GameState, me: PlayerId, opts: AiOptions = {
   const angle = Math.atan2(best.iy, best.ix) + (rng() - 0.5) * 2 * wobble;
   const power = Math.hypot(best.ix, best.iy) * (0.92 + rng() * 0.16);
   return { along: best.along, ix: Math.cos(angle) * power, iy: Math.sin(angle) * power };
+}
+
+export function chooseAiShot(state: GameState, me: PlayerId, opts: AiOptions = {}): Flick {
+  const search = searchShot(state, me, opts);
+  for (;;) {
+    const step = search.next();
+    if (step.done) return step.value;
+  }
+}
+
+/**
+ * The same search in slices, leaving the browser free to draw in between.
+ * `cancelled` stops it early, returning null.
+ */
+export async function chooseAiShotSoon(
+  state: GameState,
+  me: PlayerId,
+  opts: AiOptions,
+  cancelled: () => boolean,
+): Promise<Flick | null> {
+  const search = searchShot(state, me, opts);
+  for (;;) {
+    const step = search.next();
+    if (step.done) return step.value;
+    await new Promise((r) => setTimeout(r));
+    if (cancelled()) {
+      search.return({ along: 0, ix: 0, iy: 0 });
+      return null;
+    }
+  }
 }
 
 function evaluate(world: DeskWorld, state: GameState, me: PlayerId, flick: Flick): number {

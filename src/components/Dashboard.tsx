@@ -15,6 +15,8 @@ interface Props {
   onLevel: (room: Room, mode: 'online' | 'local') => void;
   onStore: () => void;
   onSettings: () => void;
+  /** Back to the WildPlayers platform. */
+  onExit: () => void;
 }
 
 const MODES: { id: PlayMode; title: string; note: string }[] = [
@@ -24,12 +26,20 @@ const MODES: { id: PlayMode; title: string; note: string }[] = [
 ];
 
 /** The first screen after the intro: who you are, how to play, which classroom, and the store. */
-export function Dashboard({ profile, notices, onDismissNotices, onMode, onLevel, onStore, onSettings }: Props) {
+export function Dashboard({ profile, notices, onDismissNotices, onMode, onLevel, onStore, onSettings, onExit }: Props) {
   const [openLevel, setOpenLevel] = useState<string | null>(null);
 
   return (
     <main className="dashboard">
       <header className="dash-head">
+        <button type="button" className="icon-btn" onClick={onExit} aria-label="Go back to WildPlayers" aria-describedby="exit-tip">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden>
+            <path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span id="exit-tip" role="tooltip" className="tooltip">
+            Go back to WildPlayers
+          </span>
+        </button>
         <h1 className="dash-title">Pen Fight</h1>
         <span className="dash-player">
           <span className="dash-name">{profile.name}</span>
@@ -94,7 +104,7 @@ export function Dashboard({ profile, notices, onDismissNotices, onMode, onLevel,
                       <Rupees amount={room.bet} /> bet
                     </span>
                     <span className="room-meta">
-                      Level {room.minLevel}+ pens · {room.sound}
+                      Level {room.minLevel}+ pens
                     </span>
                     {problem && <span className="room-locked">{problem}</span>}
                   </button>

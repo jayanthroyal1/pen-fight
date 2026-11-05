@@ -74,6 +74,15 @@ dd {
   padding-block: var(--space-6);
 }
 
+/* A match fills the screen exactly: nothing scrolls, nothing gets cut off. */
+.app.is-playing {
+  height: 100dvh;
+  padding: max(var(--space-2), env(safe-area-inset-top)) max(var(--space-2), env(safe-area-inset-right))
+    max(var(--space-2), env(safe-area-inset-bottom)) max(var(--space-2), env(safe-area-inset-left));
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 /* Brown-paper notebook cover, with the shine of the plastic sheet over it. */
 .cover {
   position: relative;
@@ -925,14 +934,17 @@ label.pen-slot {
 .game {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  max-width: 1000px;
+  gap: var(--space-2);
+  height: 100%;
+  max-width: 1280px;
   margin: 0 auto;
 }
 
 .game-bar {
+  position: relative;
+  z-index: 5;
   display: flex;
-  flex-wrap: wrap;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
@@ -1025,14 +1037,22 @@ label.pen-slot {
   accent-color: var(--natraj);
 }
 
+/* Always one line: a long message must not change the desk's size mid-game. */
 .status {
-  min-height: 1.5em;
+  flex: none;
+  height: 1.5em;
+  overflow: hidden;
   color: var(--cream);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .desk-wrap {
   position: relative;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   border-radius: var(--radius);
 }
@@ -1040,8 +1060,7 @@ label.pen-slot {
 .desk {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 10;
-  max-height: 74dvh;
+  height: 100%;
   border-radius: var(--radius);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   touch-action: none;
@@ -1121,14 +1140,19 @@ label.pen-slot {
   }
 }
 
+/* Over the whole screen; a tall card scrolls from its top instead of being cut off. */
 .overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
-  padding: var(--space-4);
-  background: rgba(20, 12, 6, 0.45);
+  z-index: 20;
+  display: flex;
+  padding: max(var(--space-4), env(safe-area-inset-top)) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom));
+  background: rgba(20, 12, 6, 0.55);
   overflow-y: auto;
+}
+
+.overlay > * {
+  margin: auto;
 }
 
 /* Result slip torn from the notebook. */
@@ -1205,23 +1229,6 @@ label.pen-slot {
     font-size: 1.9rem;
   }
 
-  .desk {
-    aspect-ratio: 3 / 4;
-    max-height: 72dvh;
-  }
-
-  .game-bar {
-    align-items: flex-start;
-  }
-
-  .round-label {
-    width: 100%;
-  }
-
-  .noise-control input {
-    width: 80px;
-  }
-
   .pen-slot {
     grid-template-columns: 84px 1fr;
     gap: var(--space-2);
@@ -1249,10 +1256,6 @@ label.pen-slot {
 @media (max-height: 500px) and (orientation: landscape) {
   .app {
     padding-block: var(--space-2);
-  }
-
-  .desk {
-    max-height: 78dvh;
   }
 
   .status {
@@ -1937,7 +1940,43 @@ div.room-card.is-locked {
 }
 
 .boost-note {
-  color: #9fd8ff;
+  position: absolute;
+  top: var(--space-2);
+  left: 50%;
+  max-width: calc(100% - 2 * var(--space-4) - 64px);
+  padding: 2px var(--space-3);
+  color: #bfe6ff;
+  font-size: 0.9rem;
+  line-height: 1.3;
+  text-align: center;
+  background: rgba(20, 14, 10, 0.75);
+  border-radius: 999px;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+/* The turn banner turns round when it's for the player at the far end. */
+.banner-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.banner-layer.is-far {
+  transform: rotate(180deg);
+}
+
+.menu-btn {
+  display: none;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  color: var(--ink);
+  background: var(--label);
+  border: 2px solid var(--label-line);
+  border-radius: 8px;
+  cursor: pointer;
 }
 
 
@@ -1973,7 +2012,17 @@ div.room-card.is-locked {
   align-items: flex-end;
   gap: var(--space-2);
   max-width: calc(100% - 2 * var(--space-3));
+  max-height: calc(100% - 2 * var(--space-3));
   pointer-events: none;
+}
+
+/* The player at the far end: the opposite corner, turned to face them. */
+.powers.is-far {
+  top: var(--space-3);
+  right: auto;
+  bottom: auto;
+  left: var(--space-3);
+  transform: rotate(180deg);
 }
 
 .powers > * {
@@ -1984,16 +2033,9 @@ div.room-card.is-locked {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: var(--space-2);
-  max-height: calc(100% - 64px);
-  overflow-y: auto;
-}
-
-.power-group {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
   gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .power-head {
@@ -2133,4 +2175,108 @@ div.room-card.is-locked {
   .power-btn {
     animation: none;
   }
+}
+
+/* Phones, and any short screen: the score stays, everything else folds into a menu. */
+@media (max-width: 760px), (max-height: 500px) {
+  .game-bar {
+    gap: var(--space-2);
+  }
+
+  .scoreboard {
+    flex: 1;
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  .score-chip {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 2px var(--space-2);
+  }
+
+  .score-chip:nth-child(2) {
+    transform: none;
+  }
+
+  .score-who {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .score-name,
+  .score-pen {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .score-name {
+    font-size: 0.9rem;
+  }
+
+  .score-pen {
+    font-size: 0.72rem;
+  }
+
+  .score-value {
+    font-size: 1.25rem;
+  }
+
+  .round-label {
+    display: none;
+  }
+
+  .menu-btn {
+    display: grid;
+  }
+
+  .game-actions {
+    position: absolute;
+    top: calc(100% + var(--space-1));
+    right: 0;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    width: min(260px, 100%);
+    padding: var(--space-3);
+    background: rgba(24, 18, 13, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+  }
+
+  .game-actions.is-open {
+    display: flex;
+  }
+
+  .noise-control input {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+
+  .status {
+    font-size: 0.95rem;
+  }
+}
+
+/* Phones held sideways: tighter still, so the whole list of powers fits. */
+@media (max-height: 500px) {
+  .power-list {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: var(--space-1) var(--space-2);
+    justify-items: end;
+  }
+
+  .power-head {
+    display: none;
+  }
+}
+
+/* The back button sits at the left edge, so its tooltip opens rightwards. */
+.dash-head .icon-btn:first-child .tooltip {
+  right: auto;
+  left: 0;
 }

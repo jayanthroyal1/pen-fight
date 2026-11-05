@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { chooseAiShot } from './ai';
+import { chooseAiShot, chooseAiShotSoon } from './ai';
 import { DESK, createPen } from './physics';
 import { newMatch } from './rules';
 import type { GameState } from './types';
@@ -36,5 +36,15 @@ describe('chooseAiShot', () => {
     world.free();
     expect(pens[0].out).toBe(true);
     expect(pens[1].out).toBe(false);
+  });
+});
+
+describe('thinking without freezing the game', () => {
+  it('gives the same shot in slices as in one go, and can be stopped', async () => {
+    const state = newMatch();
+    const whole = chooseAiShot(state, 0, { rng: mulberry32(9), samples: 20, wobble: 0 });
+    const sliced = await chooseAiShotSoon(state, 0, { rng: mulberry32(9), samples: 20, wobble: 0 }, () => false);
+    expect(sliced).toEqual(whole);
+    expect(await chooseAiShotSoon(state, 0, { samples: 20 }, () => true)).toBeNull();
   });
 });

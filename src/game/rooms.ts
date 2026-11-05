@@ -17,15 +17,13 @@ export interface RoomTheme {
   wear: number;
   bench: string;
   light: string;
-  /** Which chatter to play: how many voices, how loud, in which languages. */
+  /** Which room's recording to play, if it has its own. */
   noise: 'public' | 'private' | 'cbse' | 'international';
 }
 
 export interface Room {
   id: RoomId;
   name: string;
-  /** What the chatter sounds like, for the room card. */
-  sound: string;
   bet: number;
   minLevel: PenLevel;
   theme: RoomTheme;
@@ -35,7 +33,6 @@ export const ROOMS: Room[] = [
   {
     id: 'public',
     name: 'Government School',
-    sound: 'Loud Telugu chatter, ceiling fans',
     bet: 25,
     minLevel: 1,
     theme: {
@@ -46,7 +43,6 @@ export const ROOMS: Room[] = [
   {
     id: 'private',
     name: 'Private School',
-    sound: 'Telugu and English mixed',
     bet: 50,
     minLevel: 2,
     theme: {
@@ -57,7 +53,6 @@ export const ROOMS: Room[] = [
   {
     id: 'cbse',
     name: 'CBSE School',
-    sound: 'English chatter',
     bet: 75,
     minLevel: 3,
     theme: {
@@ -68,7 +63,6 @@ export const ROOMS: Room[] = [
   {
     id: 'international',
     name: 'International School',
-    sound: 'Quiet English, air-conditioning',
     bet: 100,
     minLevel: 4,
     theme: {
