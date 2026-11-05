@@ -2,33 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { openRealtime } from '../net/link';
 import { BackIcon } from '../platform/art';
 import { InviteEntry } from '../platform/InviteEntry';
+import { playerName, savePlayerName } from '../platform/player';
 import { buzz, sfx } from '../platform/sfx';
 import { SHEET_H, SHEET_W, paint, type InkOp, type Stroke } from './ink';
 import { DrawRoom, type ChatLine, type DrawMember } from './room';
 import { MIN_PLAYERS, type View } from './rules';
 import './drawGame.css';
 
-const NAME_KEY = 'wildplayers:doodle-name';
 const COLORS = ['#14100c', '#ffffff', '#8a8f98', '#e0322b', '#ff6a13', '#ffc21a', '#3fae3a', '#18a5a0', '#2a6fdb', '#7a3fc9', '#e84f9c', '#8a5a2b'];
 const SIZES = [5, 11, 22];
 /** How often the drawer's new points are sent. */
 const FLUSH_MS = 90;
-
-function readName(): string {
-  try {
-    return localStorage.getItem(NAME_KEY) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-function saveName(name: string): void {
-  try {
-    localStorage.setItem(NAME_KEY, name);
-  } catch {
-    // Remembering is only a convenience.
-  }
-}
 
 /** The room code this page was opened with, if any; taken out of the address so a reload doesn't rejoin. */
 function takeInviteCode(): string {
@@ -71,7 +55,7 @@ export default function DrawGame({ onExit }: { onExit: () => void }) {
   const enter = async (name: string, code: string | null): Promise<void> => {
     const rt = await openRealtime<DrawMember>();
     if (!rt) throw new Error('Online rooms aren’t set up on this site yet.');
-    saveName(name);
+    savePlayerName(name);
     const next = new DrawRoom(rt, name, {
       view: setView,
       chat: (line) => {
@@ -122,7 +106,7 @@ function Top({ title, onExit }: { title: string; onExit: () => void }) {
 }
 
 function Entry({ onEnter, onExit }: { onEnter: (name: string, code: string | null) => Promise<void>; onExit: () => void }) {
-  const [name, setName] = useState(readName);
+  const [name, setName] = useState(playerName);
   const [code, setCode] = useState(openingCode);
   // Opened from a friend's invite: all that's left to do is say who you are and join.
   const [invited, setInvited] = useState(openingCode !== '');

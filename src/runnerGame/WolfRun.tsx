@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackIcon, SoundIcon } from '../platform/art';
+import { playerId, playerName, savePlayerName } from '../platform/player';
 import { buzz, sfx } from '../platform/sfx';
+import { fetchBoard, submitScore, type Board } from './board';
 import { drawFrame } from './draw';
 import { jump, newRun, release, score, step, viewWidth, type Run } from './sim';
 import './wolfRun.css';
@@ -28,6 +30,45 @@ function saveBest(best: number): void {
   }
 }
 
+function Crown() {
+  return (
+    <svg className="wr-crown" viewBox="0 0 24 18" width="20" height="15" aria-hidden>
+      <polygon points="2,16 0,4 7,9 12,0 17,9 24,4 22,16" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** Everyone's best scores, the leader crowned, and this player marked. */
+function Leaderboard({ board, loading }: { board: Board | null; loading: boolean }) {
+  if (!board) {
+    return <p className="wr-board-note">{loading ? 'Loading top scores…' : 'Top scores aren’t available right now.'}</p>;
+  }
+  if (board.top.length === 0) return <p className="wr-board-note">No scores yet. Be the first on the board.</p>;
+  const onList = board.top.some((r) => r.me);
+  return (
+    <div className="wr-board">
+      <p className="wr-board-title">Top scores</p>
+      <ol className="wr-rows">
+        {board.top.map((r, i) => (
+          <li key={`${i}-${r.name}`} className={`${i === 0 ? 'is-first' : ''}${r.me ? ' is-me' : ''}`}>
+            <span className="wr-place">{i === 0 ? <Crown /> : i + 1}</span>
+            <span className="wr-who">
+              {r.name}
+              {r.me && ' (you)'}
+            </span>
+            <strong>{r.score}</strong>
+          </li>
+        ))}
+      </ol>
+      {!onList && board.rank && (
+        <p className="wr-board-note">
+          You’re number {board.rank} of {board.players}.
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** Wolf Run: an endless run. Tap to jump, tap again in the air to jump higher. */
 export default function WolfRun({ onExit }: { onExit: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -38,6 +79,52 @@ export default function WolfRun({ onExit }: { onExit: () => void }) {
   const [best, setBest] = useState(readBest);
   const [last, setLast] = useState({ score: 0, isBest: false });
   const [muted, setMuted] = useState(sfx.muted);
+  const [board, setBoard] = useState<Board | null>(null);
+  const [boardLoading, setBoardLoading] = useState(true);
+  const [name, setName] = useState(playerName);
+  const [named, setNamed] = useState(() => playerName() !== '');
+
+  // Opening the game also saves a best score that couldn't be sent at the time.
+  useEffect(() => {
+    let live = true;
+    const known = playerName();
+    const saved = readBest();
+    const load = known && saved > 0 ? submitScore(playerId(), known, saved) : fetchBoard(playerId());
+    void load.then((b) => {
+      if (!live) return;
+      setBoard(b);
+      setBoardLoading(false);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  // After a run: send a new best, and show how everyone stands now.
+  useEffect(() => {
+    if (phase !== 'over') return;
+    let live = true;
+    const known = playerName();
+    const load = known && last.isBest ? submitScore(playerId(), known, last.score) : fetchBoard(playerId());
+    void load.then((b) => {
+      if (live && b) setBoard(b);
+    });
+    return () => {
+      live = false;
+    };
+  }, [phase, last]);
+
+  const saveName = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = name.trim().slice(0, 16);
+    if (!clean) return;
+    savePlayerName(clean);
+    setNamed(true);
+    sfx.tap();
+    void submitScore(playerId(), clean, readBest()).then((b) => {
+      if (b) setBoard(b);
+    });
+  };
 
   const press = useCallback(() => {
     sfx.unlock();
@@ -62,8 +149,8 @@ export default function WolfRun({ onExit }: { onExit: () => void }) {
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.repeat || (e.code !== 'Space' && e.code !== 'ArrowUp')) return;
-      // Keep a focused button's own Space press for that button.
-      if (document.activeElement instanceof HTMLButtonElement) return;
+      // Keep Space for a focused button, or for typing a name.
+      if (document.activeElement instanceof HTMLButtonElement || document.activeElement instanceof HTMLInputElement) return;
       e.preventDefault();
       press();
     };
@@ -167,7 +254,10 @@ export default function WolfRun({ onExit }: { onExit: () => void }) {
           <span ref={scoreRef} className="wr-score">
             0
           </span>
-          <span className="wr-best">Best {best}</span>
+          <span className="wr-best">
+            Best {best}
+            {board?.top[0] && ` · Top ${board.top[0].score}`}
+          </span>
         </p>
         <button
           type="button"
@@ -186,19 +276,37 @@ export default function WolfRun({ onExit }: { onExit: () => void }) {
         </button>
       </header>
 
-      {phase === 'ready' && (
-        <button type="button" className="wr-card" onClick={press} autoFocus>
-          <span className="wr-title">Wolf Run</span>
-          <span className="wr-help">Tap to jump. Tap again in the air to jump higher. Stay low under the owls.</span>
-          <span className="wr-go">Tap to run</span>
-        </button>
-      )}
-      {phase === 'over' && (
-        <button type="button" className="wr-card" onClick={press} autoFocus>
-          <span className="wr-title">{last.isBest ? 'New best!' : 'Game over'}</span>
-          <span className="wr-final">{last.score}</span>
-          <span className="wr-go">Run again</span>
-        </button>
+      {phase !== 'running' && (
+        <section className="wr-card" aria-label={phase === 'over' ? 'Run over' : 'Wolf Run'}>
+          <div className="wr-main">
+            {phase === 'ready' ? (
+              <>
+                <h1 className="wr-title">Wolf Run</h1>
+                <p className="wr-help">Tap to jump. Tap again in the air to jump higher. Stay low under the owls.</p>
+              </>
+            ) : (
+              <>
+                <h1 className="wr-title">{last.isBest ? 'New best!' : 'Game over'}</h1>
+                <p className="wr-final">{last.score}</p>
+              </>
+            )}
+            {phase === 'over' && !named && board && (
+              <form className="wr-name" onSubmit={saveName}>
+                <label>
+                  <span>Your name for the top scores</span>
+                  <input value={name} maxLength={16} autoComplete="nickname" onChange={(e) => setName(e.target.value)} />
+                </label>
+                <button type="submit" className="wr-save">
+                  Save
+                </button>
+              </form>
+            )}
+            <button type="button" className="wp-play wr-go" onClick={press} autoFocus>
+              {phase === 'ready' ? 'Tap to run' : 'Run again'}
+            </button>
+          </div>
+          <Leaderboard board={board} loading={boardLoading} />
+        </section>
       )}
     </div>
   );

@@ -2,10 +2,12 @@
 
 A gaming platform for the browser, built phone-first. It opens with a 10-second film (`public/brand/`: a wide
 cut, and a portrait cut for tall screens that keeps the whole logo in view), then the landing page: a
-featured game and tiles for each genre (Action, Adventure, Office, Simulation, Puzzle, Online). Browsers only
-allow sound after a tap, so if autoplay with sound is refused the film waits on a "Tap to start" title screen.
+featured game and tiles for each genre (Action, Adventure, Office, Simulation, Puzzle, Online). The film plays as
+the site opens and ends on "Tap to start". Browsers refuse sound before a tap, so it may start silent, with a
+Sound on button.
 
-Games: Wolf Run (Action), an endless one-tap runner whose rules are in `src/runnerGame/sim.ts`; Pen Fight
+Games: Wolf Run (Action), an endless one-tap runner whose rules are in `src/runnerGame/sim.ts`, with a shared
+top-scores table (run `supabase/wolf_run_scores.sql` once in the Supabase SQL Editor to switch it on); Pen Fight
 (Action, Online); and Guess the Movie Title (Friday Fun, inside Office), a picture puzzle where three or
 more small pictures point to a Telugu movie and the player picks its title from four. Add movies in
 `src/movieGame/movies.ts`; Hindi, Tamil and English are listed as coming soon until they have movie lists.

@@ -53,59 +53,202 @@
   left: 50%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: min(calc(100% - 32px), 380px);
-  max-height: calc(100% - 24px);
-  padding: 18px 16px;
-  overflow-y: auto;
-  color: var(--wp-text);
-  font-family: inherit;
+  gap: 12px;
+  width: min(calc(100% - 32px), 400px);
+  max-height: calc(100% - 92px - env(safe-area-inset-top));
+  margin-top: 26px;
+  padding: 16px;
+  overflow: hidden;
   text-align: center;
   background: var(--wp-l1);
   border: 1px solid var(--wp-edge-strong);
-  cursor: pointer;
   transform: translate(-50%, -50%);
-  touch-action: manipulation;
+}
+
+.wr-main {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .wr-title {
+  margin: 0;
   font-family: var(--wp-head);
-  font-size: 38px;
+  font-size: 36px;
+  font-weight: 400;
   line-height: 1.1;
   text-transform: uppercase;
 }
 
 .wr-help {
+  margin: 0;
   color: var(--wp-muted);
   font-size: 15px;
 }
 
 .wr-final {
+  margin: 0;
   color: var(--wp-accent);
   font-family: var(--wp-head);
-  font-size: 60px;
+  font-size: 56px;
   line-height: 1;
 }
 
 .wr-go {
-  display: block;
   width: 100%;
-  margin-top: 4px;
-  padding: 12px;
-  color: var(--wp-on-accent);
-  font-family: var(--wp-head);
-  font-size: 20px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  background: var(--wp-accent);
 }
 
-/* Phones held sideways: everything shorter, so the card clears the ground. */
+.wr-name {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  text-align: left;
+}
+
+.wr-name label {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.wr-name span {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.wr-name input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 10px;
+  color: var(--wp-text);
+  font: inherit;
+  /* 16px or more, or phones zoom the page when the field is tapped. */
+  font-size: 17px;
+  background: var(--wp-l0);
+  border: 1px solid var(--wp-edge-strong);
+  border-radius: 0;
+  outline: none;
+}
+
+.wr-name input:focus {
+  border-color: var(--wp-accent);
+}
+
+.wr-save {
+  flex: none;
+  min-height: 44px;
+  padding: 0 16px;
+  color: var(--wp-text);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  background: var(--wp-l3);
+  border: 1px solid var(--wp-edge);
+  cursor: pointer;
+}
+
+.wr-board {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 4px;
+}
+
+.wr-board-title {
+  margin: 0;
+  color: var(--wp-muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.wr-board-note {
+  margin: 0;
+  color: var(--wp-muted);
+  font-size: 14px;
+}
+
+.wr-rows {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  text-align: left;
+  list-style: none;
+  border: 1px solid var(--wp-edge);
+}
+
+.wr-rows li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 2px 10px 2px 6px;
+  font-size: 15px;
+}
+
+.wr-rows li + li {
+  border-top: 1px solid var(--wp-edge);
+}
+
+.wr-place {
+  display: grid;
+  place-items: center;
+  color: var(--wp-muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wr-who {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.wr-rows strong {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The leader. */
+.wr-rows .is-first {
+  min-height: 42px;
+  font-size: 17px;
+  font-weight: 700;
+  background: var(--wp-l2);
+}
+
+.wr-rows .is-first .wr-place,
+.wr-rows .is-first strong {
+  color: var(--wp-accent);
+}
+
+.wr-rows .is-me {
+  box-shadow: inset 3px 0 0 var(--wp-accent);
+}
+
+/* Phones held sideways: the run on the left, the top scores beside it. */
 @media (max-height: 500px) {
   .wr-card {
-    gap: 4px;
-    padding: 10px 14px;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 14px;
+    width: min(calc(100% - 32px), 640px);
+    /* A set height, so the list scrolls inside the card instead of running off the screen. */
+    height: calc(100% - 76px);
+    max-height: none;
+    margin-top: 28px;
+    padding: 12px;
+  }
+
+  .wr-main {
+    justify-content: center;
   }
 
   .wr-title {
@@ -116,9 +259,8 @@
     font-size: 42px;
   }
 
-  .wr-go {
-    padding: 8px;
-    font-size: 18px;
+  .wr-help {
+    font-size: 14px;
   }
 
   .wr-score {
