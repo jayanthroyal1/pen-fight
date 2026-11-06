@@ -17,17 +17,20 @@ const loadGuessMovie = () => import('../movieGame/MovieGame');
 const loadDoodleRush = () => import('../drawGame/DrawGame');
 const loadWolfRun = () => import('../runnerGame/WolfRun');
 const loadSwordFight = () => import('../swordGame/SwordGame');
+const loadBladeRift = () => import('../bladeGame/BladeGame');
 const PenFightGame = lazy(loadPenFight);
 const MovieGame = lazy(loadGuessMovie);
 const DrawGame = lazy(loadDoodleRush);
 const WolfRun = lazy(loadWolfRun);
 const SwordGame = lazy(loadSwordFight);
+const BladeGame = lazy(loadBladeRift);
 const loaders: Record<GameId, () => Promise<unknown>> = {
   'pen-fight': loadPenFight,
   'guess-movie': loadGuessMovie,
   'doodle-rush': loadDoodleRush,
   'wolf-run': loadWolfRun,
   'sword-fight': loadSwordFight,
+  'blade-rift': loadBladeRift,
 };
 
 /** The wipe's shortest run, so a fast load still reads as a transition. */
@@ -218,7 +221,9 @@ export function Platform() {
                 <span className="wp-loader" aria-hidden />
                 Loading the game…
               </div>}>
-            {route.id === 'sword-fight' ? (
+            {route.id === 'blade-rift' ? (
+              <BladeGame onExit={() => go({ kind: 'genre', id: 'adventure' })} />
+            ) : route.id === 'sword-fight' ? (
               <SwordGame onExit={() => go({ kind: 'genre', id: 'adventure' })} />
             ) : route.id === 'wolf-run' ? (
               <WolfRun onExit={() => go({ kind: 'genre', id: 'action' })} />

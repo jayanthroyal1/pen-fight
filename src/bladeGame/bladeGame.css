@@ -1,0 +1,384 @@
+/* The anime sword fight. Builds on the sword game's screens, and adds what a 3D arena needs. */
+.bg-title {
+  background:
+    linear-gradient(transparent 60%, var(--wp-l0)),
+    linear-gradient(#120a26, #5a2fa8 74%, #150f26 74.4%);
+}
+
+.bg-heroes {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  min-height: 0;
+}
+
+.bg-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  height: 100%;
+}
+
+.bg-hero i {
+  width: 22px;
+  height: 22px;
+  margin-bottom: 4px;
+}
+
+.bg-hero em {
+  color: var(--wp-muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.25;
+}
+
+.bg-road {
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.bg-stamina {
+  height: 5px;
+  border: 0;
+}
+
+.bg-stamina i {
+  background: #ffc21a;
+}
+
+.bg-energy {
+  height: 6px;
+  border: 0;
+}
+
+/* Every control sits where the player put it, by its centre. */
+.bg-ctl {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Game controls: glassy discs that press in, glow and fill as the fight changes. */
+.bg-controls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: filter 0.1s linear;
+}
+
+.bg-controls.is-stunned {
+  filter: grayscale(0.85) brightness(0.75);
+}
+
+.bg-controls > * {
+  pointer-events: auto;
+}
+
+.bg-action {
+  --tint: 255, 106, 19;
+  --fill: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: #fff;
+  background: radial-gradient(circle at 50% 30%, rgba(var(--tint), 0.5), rgba(10, 10, 16, 0.72) 68%);
+  border: 0;
+  box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.28), 0 3px 10px rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  touch-action: none;
+  transition: scale 0.07s ease-out, box-shadow 0.1s ease-out;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bg-action.is-light {
+  --tint: 255, 106, 19;
+}
+
+.bg-action.is-heavy {
+  --tint: 232, 52, 52;
+}
+
+.bg-action.is-guard {
+  --tint: 64, 150, 255;
+}
+
+.bg-action.is-dodge {
+  --tint: 55, 200, 113;
+}
+
+.bg-action.is-special {
+  --tint: 255, 194, 26;
+}
+
+/* The ring shows how charged the move is. */
+.bg-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(rgb(var(--tint)) calc(var(--fill) * 360deg), rgba(255, 255, 255, 0.16) 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
+}
+
+.bg-face {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.bg-face svg {
+  width: 46%;
+  height: auto;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
+}
+
+.bg-face small {
+  margin-top: 1px;
+  font-family: var(--wp-head);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-shadow: 0 1px 2px #000;
+  text-transform: uppercase;
+}
+
+.bg-action.is-down {
+  scale: 0.88;
+  box-shadow: inset 0 3px 10px rgba(0, 0, 0, 0.6), 0 0 18px 3px rgba(var(--tint), 0.75);
+}
+
+/* Not enough stamina or energy yet. */
+.bg-action.is-heavy:not(.is-ready),
+.bg-action.is-dodge:not(.is-ready),
+.bg-action.is-special:not(.is-ready) {
+  color: rgba(255, 255, 255, 0.42);
+  background: rgba(10, 10, 16, 0.6);
+}
+
+.bg-action.is-special.is-ready {
+  box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.3), 0 0 16px 2px rgba(var(--tint), 0.85);
+  animation: bg-charged 1.1s ease-in-out infinite;
+}
+
+.bg-action.is-guard.is-on {
+  box-shadow: inset 0 0 14px rgba(var(--tint), 0.9), 0 0 20px 4px rgba(var(--tint), 0.85);
+}
+
+.bg-action.is-hit {
+  animation: bg-landed 0.22s ease-out;
+}
+
+/* Which blow of the combo is live. */
+.bg-pips {
+  position: absolute;
+  bottom: 11%;
+  display: flex;
+  gap: 3px;
+}
+
+.bg-pips i {
+  width: 6px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+}
+
+.bg-action[data-combo='1'] .bg-pips i:nth-child(-n + 1),
+.bg-action[data-combo='2'] .bg-pips i:nth-child(-n + 2),
+.bg-action[data-combo='3'] .bg-pips i {
+  background: #fff;
+  box-shadow: 0 0 5px #fff;
+}
+
+@keyframes bg-charged {
+  50% {
+    box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.3), 0 0 26px 6px rgba(var(--tint), 0.95);
+  }
+}
+
+@keyframes bg-landed {
+  from {
+    box-shadow: 0 0 0 0 #fff, 0 0 30px 10px rgba(var(--tint), 1);
+  }
+}
+
+.bg-stick {
+  overflow: hidden;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1), rgba(10, 10, 16, 0.55) 70%);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.5), 0 3px 10px rgba(0, 0, 0, 0.5);
+  touch-action: none;
+  transition: border-color 0.1s linear;
+}
+
+.bg-stick.is-down {
+  border-color: var(--wp-accent);
+}
+
+/* A wedge of light pointing the way the thumb is pushing. */
+.bg-stick-dir {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from -32deg, rgba(255, 106, 19, 0.75) 0 64deg, transparent 64deg);
+  opacity: 0;
+}
+
+.bg-stick-mark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border: 5px solid transparent;
+  border-bottom: 7px solid rgba(255, 255, 255, 0.6);
+}
+
+.bg-stick-mark.is-up {
+  transform: translate(-50%, -50%) rotate(0deg) translateY(calc(-1 * var(--mark, 46px)));
+}
+
+.bg-stick-mark.is-right {
+  transform: translate(-50%, -50%) rotate(90deg) translateY(calc(-1 * var(--mark, 46px)));
+}
+
+.bg-stick-mark.is-down {
+  transform: translate(-50%, -50%) rotate(180deg) translateY(calc(-1 * var(--mark, 46px)));
+}
+
+.bg-stick-mark.is-left {
+  transform: translate(-50%, -50%) rotate(270deg) translateY(calc(-1 * var(--mark, 46px)));
+}
+
+.bg-stick-knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: 46%;
+  height: 46%;
+  background: radial-gradient(circle at 40% 32%, #fff, #c8ccd6 55%, #6f7686);
+  border-radius: 50%;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.bg-stick.is-down .bg-stick-knob {
+  box-shadow: 0 0 12px 3px rgba(255, 106, 19, 0.8);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-action.is-special.is-ready,
+  .bg-action.is-hit {
+    animation: none;
+  }
+}
+
+.bg-editor {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  background: rgba(8, 8, 12, 0.72);
+}
+
+.bg-editor-hint {
+  position: absolute;
+  top: 10px;
+  right: 0;
+  left: 0;
+  margin: 0;
+  font-weight: 700;
+  text-align: center;
+}
+
+.bg-edit-item {
+  padding: 0;
+  cursor: grab;
+  touch-action: none;
+}
+
+.bg-edit-item.is-picked {
+  outline: 2px solid #ffc21a;
+  outline-offset: 2px;
+}
+
+.bg-editor-bar {
+  position: absolute;
+  top: 34px;
+  left: 50%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 12px;
+  width: min(92%, 640px);
+  padding: 6px 10px;
+  background: var(--wp-l1);
+  border: 1px solid var(--wp-edge-strong);
+  transform: translateX(-50%);
+}
+
+.bg-editor-bar label {
+  display: flex;
+  flex: 1 1 130px;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bg-editor-bar input {
+  width: 100%;
+  accent-color: var(--wp-accent);
+}
+
+.bg-size {
+  display: flex;
+  flex: 1.4 1 190px;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bg-size div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bg-size button {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: var(--wp-text);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  background: var(--wp-l3);
+  border: 1px solid var(--wp-edge-strong);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.bg-editor-bar .sf-plain {
+  min-height: 44px;
+  padding: 0 12px;
+}
+
+.bg-editor-done {
+  width: auto;
+  min-height: 44px;
+  padding-inline: 18px;
+}
+
+@media (max-height: 420px), (orientation: portrait) and (pointer: coarse) and (max-width: 420px) {
+  .bg-hero em {
+    font-size: 11px;
+  }
+}

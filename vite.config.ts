@@ -9,7 +9,7 @@ export default defineConfig({
   // Rapier's WASM loader uses top-level await, which ES2022 browsers run natively.
   build: { target: 'es2022' },
   optimizeDeps: {
-    exclude: ['@dimforge/rapier3d'],
+    exclude: ['@dimforge/rapier3d', '@babylonjs/havok'],
   },
   test: {
     environment: 'node',

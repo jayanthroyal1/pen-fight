@@ -2,7 +2,7 @@ import { animate } from 'motion/mini';
 import { m } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackIcon } from '../platform/art';
-import { autoFullscreen } from '../platform/fullscreen';
+import { goLandscape, leaveLandscape } from '../platform/landscape';
 import { buzz, sfx } from '../platform/sfx';
 import { stageTier } from '../platform/tier';
 import { playPreview } from './card3d';
@@ -38,14 +38,6 @@ function writeSave(save: Save): void {
   }
 }
 
-/** Turns the phone's screen sideways where the browser allows it; the page's CSS rotates it where it doesn't. */
-function goLandscape(): void {
-  autoFullscreen();
-  const orientation = window.screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
-  // Full screen takes a moment to arrive, and locking needs it.
-  window.setTimeout(() => void orientation.lock?.('landscape').catch(() => {}), 250);
-}
-
 type Screen = { kind: 'title' } | { kind: 'choose' } | { kind: 'chapters' } | { kind: 'fight'; chapter: Chapter } | { kind: 'done'; chapter: Chapter; won: boolean };
 
 /** Stick Man Sword Fight: a story of eight duels. */
@@ -61,12 +53,7 @@ export default function SwordGame({ onExit }: { onExit: () => void }) {
     });
   }, []);
 
-  useEffect(
-    () => () => {
-      window.screen.orientation?.unlock?.();
-    },
-    [],
-  );
+  useEffect(() => leaveLandscape, []);
 
   const leave = () => {
     sfx.back();

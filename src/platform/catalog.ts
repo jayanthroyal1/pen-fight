@@ -20,7 +20,7 @@ export const GENRES: Genre[] = [
   { id: 'online', name: 'Online', tagline: 'Real players, real rivalries.', color: '#18c7b2' },
 ];
 
-export type GameId = 'pen-fight' | 'guess-movie' | 'doodle-rush' | 'wolf-run' | 'sword-fight';
+export type GameId = 'pen-fight' | 'guess-movie' | 'doodle-rush' | 'wolf-run' | 'sword-fight' | 'blade-rift';
 
 export interface Game {
   id: GameId;
@@ -82,7 +82,10 @@ export const genre = (id: GenreId): Genre => GENRES.find((g) => g.id === id) ?? 
 
 export const isGenreId = (v: string): v is GenreId => GENRES.some((g) => g.id === v);
 
-export const isGameId = (v: string): v is GameId => GAMES.some((g) => g.id === v);
+/** Being built: reachable by its link, but not listed anywhere yet. */
+const UNLISTED: GameId[] = ['blade-rift'];
+
+export const isGameId = (v: string): v is GameId => GAMES.some((g) => g.id === v) || UNLISTED.includes(v as GameId);
 
 export const gamesIn = (id: GenreId): Game[] => GAMES.filter((g) => g.genres.includes(id));
 
