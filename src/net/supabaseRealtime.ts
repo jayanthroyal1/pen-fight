@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Member, PresenceChannel, Realtime } from './realtimeLink';
 
+const RECONNECT_MS = 8000;
+
 /** Supabase Realtime channels, shaped for `RealtimeLink`. Uses only the public key. */
 export function supabaseRealtime<M = Member>(url: string, publicKey: string): Realtime<M> {
   const supabase = createClient(url, publicKey, { auth: { persistSession: false } });
@@ -20,9 +22,15 @@ export function supabaseRealtime<M = Member>(url: string, publicKey: string): Re
         onMessage: (f) => void messages.push(f),
         subscribe: () =>
           new Promise<void>((resolve, reject) => {
+            // A dropped first try usually reconnects by itself, so it gets a moment before giving up.
+            let giveUp = 0;
             ch.subscribe((status) => {
-              if (status === 'SUBSCRIBED') resolve();
-              else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') reject(new Error(`Realtime ${status}`));
+              if (status === 'SUBSCRIBED') {
+                window.clearTimeout(giveUp);
+                resolve();
+              } else if ((status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') && !giveUp) {
+                giveUp = window.setTimeout(() => reject(new Error('Couldn’t reach the game server. Check your connection and try again.')), RECONNECT_MS);
+              }
             });
           }),
         track: async (member: M) => {

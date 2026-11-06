@@ -1,6 +1,6 @@
 import { m, useMotionValue, useReducedMotion, useSpring, useTransform } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
-import { BackIcon, DoodleArt, FullscreenIcon, GenreArt, PenFightArt, SoundIcon, MovieArt, WolfRunArt } from './art';
+import { BackIcon, DoodleArt, FullscreenIcon, GenreArt, PenFightArt, SoundIcon, MovieArt, SwordArt, WolfRunArt } from './art';
 import { GAMES, GENRES, gamesIn, genre as genreOf, type Game, type Genre, type GenreId } from './catalog';
 import { canFullscreen, isFullscreen, toggleFullscreen } from './fullscreen';
 import { buzz, sfx } from './sfx';
@@ -89,7 +89,10 @@ function GameCard({ game, onPlay, onWarm }: { game: Game; onPlay: (g: Game) => v
   return (
     <m.article className="wp-game" variants={item} {...tilt}>
       <div className="wp-game-art">
-        {game.id === 'wolf-run' ? (
+        {game.beta && <span className="wp-beta">Beta</span>}
+        {game.id === 'sword-fight' ? (
+          <SwordArt />
+        ) : game.id === 'wolf-run' ? (
           <WolfRunArt />
         ) : game.id === 'doodle-rush' ? (
           <DoodleArt />

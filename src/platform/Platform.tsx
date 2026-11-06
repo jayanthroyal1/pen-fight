@@ -3,6 +3,7 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { BRAND_ORANGE, genre as genreOf, type Game, type GameId, type GenreId } from './catalog';
 import { autoFullscreen } from './fullscreen';
 import { Intro } from './Intro';
+import { Recover } from './Recover';
 import { GenrePage, Landing, feedback } from './Pages';
 import { openingRoute, parseRoute, routeHash, type Route } from './routes';
 import { buzz, sfx } from './sfx';
@@ -15,15 +16,18 @@ const loadPenFight = () => import('../PenFightGame');
 const loadGuessMovie = () => import('../movieGame/MovieGame');
 const loadDoodleRush = () => import('../drawGame/DrawGame');
 const loadWolfRun = () => import('../runnerGame/WolfRun');
+const loadSwordFight = () => import('../swordGame/SwordGame');
 const PenFightGame = lazy(loadPenFight);
 const MovieGame = lazy(loadGuessMovie);
 const DrawGame = lazy(loadDoodleRush);
 const WolfRun = lazy(loadWolfRun);
+const SwordGame = lazy(loadSwordFight);
 const loaders: Record<GameId, () => Promise<unknown>> = {
   'pen-fight': loadPenFight,
   'guess-movie': loadGuessMovie,
   'doodle-rush': loadDoodleRush,
   'wolf-run': loadWolfRun,
+  'sword-fight': loadSwordFight,
 };
 
 /** The wipe's shortest run, so a fast load still reads as a transition. */
@@ -209,11 +213,14 @@ export function Platform() {
         )}
 
         {playing && (
+          <Recover onLeave={() => go({ kind: 'home' })}>
           <Suspense fallback={<div className="wp-loading" role="status">
                 <span className="wp-loader" aria-hidden />
                 Loading the game…
               </div>}>
-            {route.id === 'wolf-run' ? (
+            {route.id === 'sword-fight' ? (
+              <SwordGame onExit={() => go({ kind: 'genre', id: 'adventure' })} />
+            ) : route.id === 'wolf-run' ? (
               <WolfRun onExit={() => go({ kind: 'genre', id: 'action' })} />
             ) : route.id === 'doodle-rush' ? (
               <DrawGame onExit={() => go({ kind: 'genre', id: 'online' })} />
@@ -223,6 +230,7 @@ export function Platform() {
               <PenFightGame onExit={() => go({ kind: 'home' })} />
             )}
           </Suspense>
+          </Recover>
         )}
 
         <AnimatePresence>
@@ -230,9 +238,9 @@ export function Platform() {
             <m.div
               className="wp-wipe"
               role="status"
-              initial={{ clipPath: 'polygon(0 100%, 100% 130%, 100% 130%, 0 100%)' }}
-              animate={{ clipPath: 'polygon(0 -30%, 100% 0, 100% 130%, 0 130%)' }}
-              exit={{ clipPath: 'polygon(0 -30%, 100% -60%, 100% -60%, 0 -30%)' }}
+              initial={{ y: '112%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '-112%' }}
               transition={{ duration: 0.45, ease: [0.7, 0, 0.2, 1] }}
             >
               <img src={asset('brand/wildplayers-mark.webp')} alt="" width={568} height={451} />

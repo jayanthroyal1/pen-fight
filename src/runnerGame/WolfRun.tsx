@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackIcon, SoundIcon } from '../platform/art';
 import { playerId, playerName, savePlayerName } from '../platform/player';
+import { onAwayChange } from '../platform/lifecycle';
 import { buzz, sfx } from '../platform/sfx';
 import { fetchBoard, submitScore, type Board } from './board';
 import { drawFrame } from './draw';
@@ -76,6 +77,8 @@ export default function WolfRun({ onExit }: { onExit: () => void }) {
   const scoreRef = useRef<HTMLSpanElement>(null);
   const runRef = useRef<Run>(newRun());
   const rigRef = useRef(new WolfRig());
+  const pausedRef = useRef(false);
+  const [paused, setPaused] = useState(false);
   const overAt = useRef(0);
   const [phase, setPhase] = useState<Run['phase']>('ready');
   const [best, setBest] = useState(readBest);
@@ -128,9 +131,25 @@ export default function WolfRun({ onExit }: { onExit: () => void }) {
     });
   };
 
+  // Stepping away mid-run holds the wolf still until the player taps to go on.
+  useEffect(
+    () =>
+      onAwayChange((gone) => {
+        if (!gone || runRef.current.phase !== 'running') return;
+        pausedRef.current = true;
+        setPaused(true);
+      }),
+    [],
+  );
+
   const press = useCallback(() => {
     sfx.unlock();
     const r = runRef.current;
+    if (pausedRef.current) {
+      pausedRef.current = false;
+      setPaused(false);
+      return;
+    }
     if (r.phase === 'over' && performance.now() - overAt.current < RESTART_DELAY_MS) return;
     if (r.phase !== 'running') {
       runRef.current = { ...newRun(), phase: 'running' };
@@ -196,8 +215,8 @@ export default function WolfRun({ onExit }: { onExit: () => void }) {
       before = now;
       const r = runRef.current;
       // Only a run in progress moves on: the crash below must happen exactly once.
-      spare = r.phase === 'running' ? spare + dt : 0;
-      while (r.phase === 'running' && spare >= STEP) {
+      spare = r.phase === 'running' && !pausedRef.current ? spare + dt : 0;
+      while (r.phase === 'running' && !pausedRef.current && spare >= STEP) {
         spare -= STEP;
         const was = score(r);
         const landed = step(r, STEP, viewW);
@@ -217,7 +236,7 @@ export default function WolfRun({ onExit }: { onExit: () => void }) {
           break;
         }
       }
-      time += r.phase === 'running' ? dt : 0;
+      time += r.phase === 'running' && !pausedRef.current ? dt : 0;
       // Between runs the wolf still breathes, wags and finishes falling.
       if (runRef.current.phase !== 'running') rigRef.current.update(dt, runRef.current, false);
       drawFrame(g, runRef.current, rigRef.current, canvas.width, canvas.height, viewW, time);
@@ -283,6 +302,17 @@ export default function WolfRun({ onExit }: { onExit: () => void }) {
           <SoundIcon muted={muted} />
         </button>
       </header>
+
+      {paused && phase === 'running' && (
+        <section className="wr-card" aria-label="Paused">
+          <div className="wr-main">
+            <h1 className="wr-title">Paused</h1>
+            <button type="button" className="wp-play wr-go" onClick={press} autoFocus>
+              Tap to continue
+            </button>
+          </div>
+        </section>
+      )}
 
       {phase !== 'running' && (
         <section className="wr-card" aria-label={phase === 'over' ? 'Run over' : 'Wolf Run'}>

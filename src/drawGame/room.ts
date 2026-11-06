@@ -171,6 +171,7 @@ export class DrawRoom {
     this.game = next;
     if (next.phase === 'choosing' && (before.phase !== 'choosing' || before.drawerId !== next.drawerId)) {
       this.strokes = [];
+      this.undone = [];
       this.events.ink([], { k: 'clear' });
       void this.ch?.send({ t: 'ink', op: { k: 'clear' } } satisfies Msg);
       if (next.drawerId) this.deliver({ t: 'choices', to: next.drawerId, words: next.choices });
@@ -203,6 +204,7 @@ export class DrawRoom {
         if (msg.to === this.id) this.events.choices(msg.words);
         break;
       case 'ink':
+        if (msg.op.k === 'clear') this.undone = [];
         this.strokes = applyInk(this.strokes, msg.op);
         this.events.ink(this.strokes, msg.op);
         break;
@@ -274,6 +276,43 @@ export class DrawRoom {
 
   draw(op: InkOp): void {
     this.deliver({ t: 'ink', op });
+  }
+
+  /** The drawer's own ink lands on their sheet at once, without waiting for the next send. */
+  inkHere(op: InkOp): void {
+    this.receive({ t: 'ink', op });
+  }
+
+  /** And goes to everyone else in batches. */
+  inkOut(op: InkOp): void {
+    void this.ch?.send({ t: 'ink', op } satisfies Msg);
+  }
+
+  private undone: Stroke[] = [];
+
+  get canUndo(): boolean {
+    return this.strokes.length > 0;
+  }
+
+  get canRedo(): boolean {
+    return this.undone.length > 0;
+  }
+
+  /** A new mark ends what Redo can bring back. */
+  forgetRedo(): void {
+    this.undone = [];
+  }
+
+  undo(): void {
+    const last = this.strokes[this.strokes.length - 1];
+    if (!last) return;
+    this.undone.push(last);
+    this.draw({ k: 'undo' });
+  }
+
+  redo(): void {
+    const stroke = this.undone.pop();
+    if (stroke) this.draw({ k: 'put', stroke });
   }
 
   async leave(): Promise<void> {

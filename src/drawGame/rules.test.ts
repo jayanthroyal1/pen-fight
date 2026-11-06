@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { applyInk } from './ink';
 import type { PresenceChannel, Realtime } from '../net/realtimeLink';
 import { DrawRoom, type ChatLine, type DrawMember } from './room';
-import { paint, type Stroke } from './ink';
+import { Brush, applyInk, floodFill, paint, type InkOp, type Stroke } from './ink';
 import { CHOOSE_MS, DRAW_MS, REVEAL_MS, ROUNDS, addPlayer, backToLobby, chooseWord, guess, newGame, normalise, publicView, removePlayer, setSettings, startGame, tick, type Game, type View } from './rules';
 import { WORDS } from './words';
 
@@ -190,6 +189,47 @@ function seat(hub: Hub, name: string, id: string) {
 }
 
 describe('a room', () => {
+  it('keeps the guesser’s sheet the same as the drawer’s through every tool', async () => {
+    const hub = new Hub();
+    const a = seat(hub, 'Asha', 'aaa');
+    const b = seat(hub, 'Bala', 'bbb');
+    await b.room.join(await a.room.create());
+    await b.until(() => b.last()?.players.length === 2);
+    const ink = (s: typeof a) => (s.room as unknown as { strokes: Stroke[] }).strokes;
+    const same = async () => {
+      await b.until(() => JSON.stringify(ink(b)) === JSON.stringify(ink(a)));
+      expect(ink(b)).toEqual(ink(a));
+    };
+
+    // The drawer sees points at once; the others get them in a batch.
+    const first: InkOp = { k: 'add', id: 's1', color: '#000', width: 8, points: [1, 1], press: [60] };
+    const more: InkOp = { k: 'add', id: 's1', color: '#000', width: 8, points: [9, 9], press: [90] };
+    a.room.inkHere(first);
+    a.room.inkHere(more);
+    expect(ink(a)[0].points).toEqual([1, 1, 9, 9]);
+    a.room.inkOut({ ...first, points: [1, 1, 9, 9], press: [60, 90] });
+    await same();
+
+    a.room.draw({ k: 'fill', id: 'f1', color: '#ff0000', x: 5, y: 5 });
+    await same();
+    expect(ink(b)).toHaveLength(2);
+
+    a.room.undo();
+    await b.until(() => ink(b).length === 1);
+    expect(a.room.canRedo).toBe(true);
+    a.room.redo();
+    await same();
+    expect(ink(b)[1].fill).toBe(true);
+    expect(a.room.canRedo).toBe(false);
+
+    a.room.undo();
+    a.room.draw({ k: 'clear' });
+    await b.until(() => ink(b).length === 0);
+    expect(a.room.canRedo).toBe(false);
+    await a.room.leave();
+    await b.room.leave();
+  });
+
   it('plays a turn between host and guest, keeping the word from the guesser', async () => {
     const hub = new Hub();
     const a = seat(hub, 'Asha', 'aaa');
@@ -300,5 +340,99 @@ describe('painting a stroke', () => {
     const { g, calls } = pen();
     paint(g, stroke([0, 0, 10, 0]), 2);
     expect(calls).toEqual(['move 0 0', 'line 5 0', 'line 10 0']);
+  });
+});
+
+describe('the brush', () => {
+  it('ignores trembling, then follows a real move', () => {
+    const brush = new Brush(100, 100, 0);
+    expect(brush.move(100.5, 100.5, 16).points).toEqual([]);
+    const { points } = brush.move(140, 100, 32);
+    expect(points).toHaveLength(2);
+    expect(points[0]).toBeGreaterThan(100);
+    expect(points[0]).toBeLessThanOrEqual(140);
+  });
+
+  it('steadies a shaky slow line', () => {
+    const brush = new Brush(0, 0, 0);
+    const ys: number[] = [];
+    for (let i = 1; i <= 60; i++) ys.push(...brush.move(i * 4, i % 2 ? 6 : -6, i * 16).points.filter((_, n) => n % 2 === 1));
+    expect(Math.max(...ys.slice(10)) - Math.min(...ys.slice(10))).toBeLessThan(10);
+  });
+
+  it('thins as it speeds up, and a stylus goes by pressure', () => {
+    const width = (step: number) => {
+      const brush = new Brush(0, 0, 0);
+      let last = 0;
+      for (let i = 1; i < 40; i++) last = brush.move(i * step, 0, i * 16).press[0] ?? last;
+      return last;
+    };
+    expect(width(90)).toBeLessThan(width(6));
+    const soft = new Brush(0, 0, 0);
+    const hard = new Brush(0, 0, 0);
+    let a = 0;
+    let b = 0;
+    for (let i = 1; i < 30; i++) {
+      a = soft.move(i * 10, 0, i * 16, 0.1).press[0];
+      b = hard.move(i * 10, 0, i * 16, 0.95).press[0];
+    }
+    expect(b).toBeGreaterThan(a * 1.5);
+  });
+
+  it('keeps the eraser even', () => {
+    const brush = new Brush(0, 0, 0, true);
+    expect(brush.start().press).toEqual([100]);
+    expect(brush.move(200, 0, 16).press).toEqual([100]);
+  });
+
+  it('catches up with the pointer when it lifts', () => {
+    const brush = new Brush(0, 0, 0);
+    brush.move(50, 0, 16);
+    expect(brush.end(90, 0).points).toEqual([90, 0]);
+  });
+});
+
+describe('the ink tools', () => {
+  it('keeps widths with the points as a stroke grows', () => {
+    let s = applyInk([], { k: 'add', id: 'a', color: '#000', width: 4, points: [0, 0], press: [60] });
+    s = applyInk(s, { k: 'add', id: 'a', color: '#000', width: 4, points: [5, 5], press: [90] });
+    expect(s).toHaveLength(1);
+    expect(s[0].press).toEqual([60, 90]);
+  });
+
+  it('stores a fill, and puts an undone stroke back', () => {
+    const s = applyInk([], { k: 'fill', id: 'f', color: '#ff0000', x: 1, y: 2 });
+    expect(s[0]).toMatchObject({ fill: true, points: [1, 2] });
+    const gone = applyInk(s, { k: 'undo' });
+    expect(applyInk(gone, { k: 'put', stroke: s[0] })).toEqual(s);
+  });
+
+  it('fills up to a line and no further', () => {
+    const w = 9;
+    const h = 5;
+    const data = new Uint8ClampedArray(w * h * 4).fill(255);
+    for (let y = 0; y < h; y++) data.set([0, 0, 0, 255], (y * w + 4) * 4);
+    floodFill(data, w, h, 1, 1, [255, 0, 0]);
+    const at = (x: number, y: number) => [...data.slice((y * w + x) * 4, (y * w + x) * 4 + 3)];
+    expect(at(0, 0)).toEqual([255, 0, 0]);
+    expect(at(3, 4)).toEqual([255, 0, 0]);
+    expect(at(4, 2)).toEqual([0, 0, 0]);
+    expect(at(6, 2)).toEqual([255, 255, 255]);
+  });
+
+  it('paints a stroke of changing width piece by piece', () => {
+    const widths: number[] = [];
+    const g = {
+      set lineWidth(w: number) {
+        widths.push(w);
+      },
+      beginPath() {},
+      stroke() {},
+      moveTo() {},
+      lineTo() {},
+      quadraticCurveTo() {},
+    } as unknown as CanvasRenderingContext2D;
+    paint(g, { id: 'a', color: '#000', width: 10, points: [0, 0, 10, 0, 20, 0], press: [50, 100, 60] });
+    expect(widths.slice(1)).toEqual([5, 10, 6]);
   });
 });

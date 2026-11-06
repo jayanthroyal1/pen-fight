@@ -112,7 +112,7 @@ body {
   right: 0;
   bottom: max(12px, env(safe-area-inset-bottom));
   left: 0;
-  z-index: 2;
+  z-index: 4;
   color: var(--wp-muted);
   font-family: 'Orbitron', var(--wp-font);
   font-size: 11px;
@@ -711,6 +711,7 @@ body {
 }
 
 .wp-game-art {
+  position: relative;
   aspect-ratio: 320 / 170;
   overflow: hidden;
 }
@@ -914,8 +915,10 @@ body {
 /* Starting a game */
 .wp-wipe {
   position: fixed;
-  inset: 0;
+  inset: -10% 0;
   z-index: 50;
+  clip-path: polygon(0 6%, 100% 0, 100% 94%, 0 100%);
+  will-change: transform;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -933,6 +936,28 @@ body {
   width: min(46vw, 220px);
   height: auto;
   filter: brightness(0);
+}
+
+.wp-recover {
+  padding: 24px;
+  text-align: center;
+}
+
+.wp-recover h1 {
+  margin: 0;
+  font-family: var(--wp-head);
+  font-size: 30px;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.wp-recover p {
+  margin: 0;
+  color: var(--wp-muted);
+}
+
+.wp-recover button {
+  width: min(100%, 300px);
 }
 
 .wp-loading {
@@ -983,16 +1008,97 @@ body {
   }
 }
 
+/* The splash: claw marks on the dark, over two halves that tear apart to show what's next. */
 .wp-splash {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 3;
+  overflow: hidden;
+}
+
+.wp-splash-half {
+  position: absolute;
+  inset: 0;
+  background: var(--wp-l0);
+  clip-path: polygon(0 0, 62.2% 0, 38.2% 100%, 0 100%);
+}
+
+.wp-splash-half.is-right {
+  clip-path: polygon(62% 0, 100% 0, 100% 100%, 38% 100%);
+}
+
+.wp-splash-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.wp-splash-content {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 28px;
-  background: var(--wp-l0);
+  gap: clamp(12px, 3dvh, 24px);
+}
+
+.wp-splash-mark {
+  width: min(42vw, 30dvh, 190px);
+  height: auto;
+  overflow: visible;
+}
+
+.wp-claw {
+  fill: var(--wp-accent);
+  opacity: 0;
+  transform: scaleY(0);
+  transform-box: fill-box;
+  transform-origin: top;
+}
+
+.wp-splash-word {
+  display: flex;
+  margin: 0;
+  overflow: hidden;
+  color: var(--wp-text);
+  font-family: var(--wp-head);
+  font-size: clamp(26px, 8vw, 40px);
+  letter-spacing: 0.1em;
+  line-height: 1.2;
+}
+
+.wp-splash-word span {
+  display: inline-block;
+  opacity: 0;
+}
+
+.wp-splash-bar {
+  display: block;
+  width: min(46vw, 200px);
+  height: 3px;
+  background: var(--wp-l3);
+}
+
+.wp-splash-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--wp-accent);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.wp-splash.is-still .wp-claw,
+.wp-splash.is-still .wp-splash-word span {
+  opacity: 1;
+  transform: none;
+}
+
+.wp-splash.is-still .wp-splash-fill {
+  transform: scaleX(0.9);
 }
 
 .wp-film-loader {
@@ -1000,6 +1106,192 @@ body {
   top: 50%;
   left: 50%;
   transform: translateX(-50%);
+}
+
+.wp-wolf-art {
+  background: #0f1115;
+}
+
+.wp-sword-art {
+  background: linear-gradient(#2a0f12, #d9541e);
+}
+
+.wp-beta {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 1;
+  padding: 2px 8px;
+  color: var(--wp-on-accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--wp-accent);
+}
+
+/* Doodle Rush's card: a sheet tilted on a bright desk, with the guesses floating in front of it. */
+.wp-doodle {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  container-type: size;
+  background:
+    radial-gradient(#e0a400 1.2px, transparent 1.4px) 0 0 / 14px 14px,
+    #ffc21a;
+}
+
+.wp-doodle-3d {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.wp-doodle-scene {
+  position: absolute;
+  inset: 0;
+  perspective: 240cqmin;
+}
+
+/* In 3D the flat sheet stays in the page, unseen, because the pencil reads its lines. */
+.wp-doodle.is-3d .wp-doodle-scene {
+  visibility: hidden;
+}
+
+.wp-doodle-sheet {
+  position: absolute;
+  top: 7cqh;
+  left: 5cqw;
+  width: min(54cqw, 100cqh);
+  aspect-ratio: 4 / 3;
+  background: #fff;
+  box-shadow: 5px 6px 0 #14100c;
+  transform: rotateX(9deg) rotateY(12deg) rotateZ(-3deg);
+  animation: wp-doodle-sway 6s ease-in-out infinite alternate;
+}
+
+.wp-doodle-sheet svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.wp-doodle-ink {
+  transition: opacity 0.3s linear;
+}
+
+.wp-doodle.is-wipe .wp-doodle-ink {
+  opacity: 0;
+}
+
+.wp-doodle-mask,
+.wp-doodle-word {
+  font-family: var(--wp-head);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+
+.wp-doodle-mask {
+  fill: #14100c;
+}
+
+.wp-doodle-word {
+  fill: #1f9d55;
+  opacity: 0;
+}
+
+.wp-doodle[data-step='3'] .wp-doodle-mask {
+  opacity: 0;
+}
+
+.wp-doodle[data-step='3'] .wp-doodle-word {
+  opacity: 1;
+}
+
+.wp-doodle.is-done .wp-doodle-pen {
+  opacity: 0;
+}
+
+.wp-doodle-clock {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: grid;
+  place-items: center;
+  min-width: 13cqmin;
+  height: 13cqmin;
+  color: #fff;
+  font-family: var(--wp-head);
+  font-size: 8cqmin;
+  background: #14100c;
+}
+
+.wp-doodle-paints {
+  position: absolute;
+  bottom: 3cqh;
+  left: 7cqw;
+  display: flex;
+  gap: 3px;
+  transform: rotateX(20deg) rotateZ(-2deg);
+}
+
+.wp-doodle-paints span {
+  width: 6cqmin;
+  height: 6cqmin;
+  border: 1px solid #14100c;
+}
+
+.wp-doodle-guesses {
+  position: absolute;
+  top: 50%;
+  right: 3cqw;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2.5cqh;
+  width: 33cqw;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  transform: translateY(-50%);
+}
+
+.wp-doodle-guesses li {
+  padding: 1.4cqh 7px;
+  color: #fff;
+  font-size: clamp(11px, 7.4cqmin, 16px);
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  background: #14100c;
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  opacity: 0;
+  transform: translateX(24px) scale(0.8);
+  transition: opacity 0.16s ease-out, transform 0.26s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.wp-doodle-guesses .is-right {
+  color: #06230f;
+  background: #37c871;
+}
+
+.wp-doodle-guesses b {
+  font-weight: 700;
+}
+
+.wp-doodle[data-step='1'] li:nth-child(1),
+.wp-doodle[data-step='2'] li:nth-child(-n + 2),
+.wp-doodle[data-step='3'] li {
+  opacity: 1;
+  transform: none;
+}
+
+@keyframes wp-doodle-sway {
+  to {
+    transform: rotateX(5deg) rotateY(-3deg) rotateZ(-1deg);
+  }
 }
 
 /* Guess the Movie Title's card: a film strip turning in a ring, in front of cinema curtains. */
@@ -1300,6 +1592,7 @@ body {
   .wp-intro-title,
   .wp-intro-logo,
   .wp-reel-ring,
+  .wp-doodle-sheet,
   .wp-intro-prompt,
   .wp-art-pen-a,
   .wp-art-pen-b,

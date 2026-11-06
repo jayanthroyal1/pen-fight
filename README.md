@@ -10,8 +10,13 @@ Games: Wolf Run (Action), an endless one-tap runner whose rules are in `src/runn
 moves on screen is in `src/runnerGame/rig.ts` and never changes the game), with a shared
 top-scores table (run `supabase/wolf_run_scores.sql` once in the Supabase SQL Editor to switch it on); Pen Fight
 (Action, Online); and Guess the Movie Title (Friday Fun, inside Office), a picture puzzle where three or
-more small pictures point to a Telugu movie and the player picks its title from four. Add movies in
-`src/movieGame/movies.ts`; Hindi, Tamil and English are listed as coming soon until they have movie lists.
+more small pictures point to a Telugu movie and the player picks its title. It has six levels of ten movies
+from 2005 onwards, each harder than the last, with levels 7 to 10 shown as upcoming. Movies are in
+`src/movieGame/movies.ts` and the levels in `src/movieGame/game.ts`; Hindi, Tamil and English are listed as
+coming soon until they have movie lists.
+Stick Man Sword Fight (Adventure, in beta) is a story of eight connected duels, each harder than the last:
+the rules and the computer's fighting are in `src/swordGame/combat.ts`, the story in `story.ts`, Rapier
+physics and ragdolls in `world.ts`, and Three.js in `scene.ts`. On a phone it plays sideways.
 Doodle Rush (Online, Puzzle, and Friday Fun in Office) is a draw-and-guess game for 2 to 8 players in online
 rooms: `src/drawGame/rules.ts` holds the rules, and the room's first player runs them for everyone over
 Supabase Realtime, passing the job on if they leave. The host picks the rounds and drawing time in the lobby.

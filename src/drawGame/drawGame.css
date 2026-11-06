@@ -259,6 +259,7 @@
 }
 
 .dr-cover {
+  animation: dr-fade 0.22s ease-out both;
   position: absolute;
   inset: 0;
   display: flex;
@@ -455,12 +456,12 @@
 
 .dr-colors {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 4px;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
 }
 
 .dr-color {
-  height: 40px;
+  height: 34px;
   padding: 0;
   border: 1px solid var(--wp-edge-strong);
   cursor: pointer;
@@ -474,35 +475,82 @@
 
 .dr-tool-row {
   display: grid;
-  grid-template-columns: 48px 48px 48px 1fr 1fr 1fr;
-  gap: 4px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 3px;
 }
 
-.dr-tool-row .dr-btn {
-  min-width: 0;
-  padding: 0 2px;
-  font-size: 14px;
-}
-
-.dr-size {
+.dr-tool {
   display: grid;
   place-items: center;
+  min-width: 0;
   height: 48px;
   padding: 0;
+  color: var(--wp-text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
   background: var(--wp-l2);
   border: 1px solid var(--wp-edge);
   cursor: pointer;
   touch-action: manipulation;
 }
 
-.dr-size span {
+.dr-tool:disabled {
+  color: var(--wp-l3);
+  cursor: default;
+}
+
+.dr-tool.is-on {
+  color: var(--wp-on-accent);
+  background: var(--wp-accent);
+  border-color: var(--wp-accent);
+}
+
+.dr-tool.is-warn {
+  color: #fff;
+  background: var(--wp-wrong);
+  border-color: var(--wp-wrong);
+}
+
+.dr-size-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+}
+
+.dr-size-dot {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  background: var(--wp-l3);
+}
+
+.dr-size-dot i {
   display: block;
-  background: var(--wp-text);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 50%;
 }
 
-.dr-size.is-on {
-  border-color: var(--wp-accent);
+.dr-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.dr-root .dr-size-row input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0;
+  background: none;
+  border: 0;
+  accent-color: var(--wp-accent);
+  touch-action: pan-x;
 }
 
 .dr-talk {
@@ -583,5 +631,18 @@
     max-height: none;
     width: auto;
     max-width: 100%;
+  }
+}
+
+@keyframes dr-fade {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dr-cover {
+    animation: none;
   }
 }

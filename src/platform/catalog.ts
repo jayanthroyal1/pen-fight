@@ -20,7 +20,7 @@ export const GENRES: Genre[] = [
   { id: 'online', name: 'Online', tagline: 'Real players, real rivalries.', color: '#18c7b2' },
 ];
 
-export type GameId = 'pen-fight' | 'guess-movie' | 'doodle-rush' | 'wolf-run';
+export type GameId = 'pen-fight' | 'guess-movie' | 'doodle-rush' | 'wolf-run' | 'sword-fight';
 
 export interface Game {
   id: GameId;
@@ -29,6 +29,8 @@ export interface Game {
   /** Short facts shown on the game's card. */
   facts: string[];
   genres: GenreId[];
+  /** Still being finished: its card says so. */
+  beta?: boolean;
   /** A named section inside one genre's page, with a line about it. */
   shelf?: { genre: GenreId; name: string; tagline: string };
 }
@@ -46,8 +48,8 @@ export const GAMES: Game[] = [
   {
     id: 'guess-movie',
     title: 'Guess the Movie Title',
-    tagline: 'A few little pictures, four titles. Name the movie.',
-    facts: ['1 player', 'Telugu', 'Picture puzzle'],
+    tagline: 'A few little pictures. Six levels. Name the movie.',
+    facts: ['1 player', 'Telugu', '6 levels'],
     genres: ['office'],
     shelf: FRIDAY_FUN,
   },
@@ -65,6 +67,14 @@ export const GAMES: Game[] = [
     tagline: 'Jump the rocks, dodge the owls, and beat your best.',
     facts: ['1 player', 'One-tap controls', 'Endless'],
     genres: ['action'],
+  },
+  {
+    id: 'sword-fight',
+    title: 'Stick Man Sword Fight',
+    tagline: 'They burned your home. Fight eight duels to the Throne of Ash.',
+    facts: ['1 player', 'Story mode', 'Super powers'],
+    genres: ['adventure'],
+    beta: true,
   },
 ];
 

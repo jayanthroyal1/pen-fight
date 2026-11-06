@@ -1,5 +1,7 @@
-import { WOLF_PARTS } from '../runnerGame/wolf';
+import { useEffect, useRef } from 'react';
 import type { GenreId } from './catalog';
+import { stageTier } from './tier';
+import { onceSeen, whileSeen } from './whileSeen';
 
 /** Faceted art for each genre, cut in angles like the wolf in the logo. */
 export function GenreArt({ id }: { id: GenreId }) {
@@ -85,23 +87,146 @@ export function PenFightArt() {
   );
 }
 
-/** A half-drawn cat on a sheet, with the pen still at work, for Doodle Rush's card. */
+/** What gets drawn on Doodle Rush's card, stroke by stroke, on a 200 × 150 sheet. */
+const ROCKET = [
+  { d: 'M100 14C122 34 126 66 120 96L80 96C74 66 78 34 100 14Z', color: '#14100c', width: 4 },
+  { d: 'M111 54a11 11 0 1 1-22 0a11 11 0 1 1 22 0', color: '#2a6fdb', width: 4 },
+  { d: 'M79 74L58 104L82 96', color: '#e0322b', width: 4 },
+  { d: 'M121 74L142 104L118 96', color: '#e0322b', width: 4 },
+  { d: 'M90 101C86 114 96 118 100 130C104 118 114 114 110 101', color: '#ff6a13', width: 4 },
+  { d: 'M36 36L46 46M46 36L36 46', color: '#e84f9c', width: 3 },
+  { d: 'M156 54L166 64M166 54L156 64', color: '#3fae3a', width: 3 },
+];
+const DOODLE_DRAW_S = 6;
+const DOODLE_LOOP_S = 9.2;
+/** When each guess pops up; the last is the right one. */
+const DOODLE_GUESSES_AT = [1.9, 3.9, 6.2];
+const DOODLE_WIPE_AT = 8.7;
+
+/** Doodle Rush's card: a sheet tilted on a yellow desk, drawing itself while the guesses come in. */
 export function DoodleArt() {
-  const line = { fill: 'none', stroke: '#14100c', strokeWidth: 5, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const penRef = useRef<SVGGElement>(null);
+  const clockRef = useRef<HTMLSpanElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const root = rootRef.current!;
+    const pen = penRef.current!;
+    const clock = clockRef.current!;
+    const lines = [...root.querySelectorAll<SVGPathElement>('.wp-doodle-line')];
+    const lengths = lines.map((l) => l.getTotalLength());
+    const total = lengths.reduce((a, b) => a + b, 0);
+    lines.forEach((l, i) => l.setAttribute('stroke-dasharray', `${lengths[i]}`));
+
+    const show = (t: number) => {
+      let left = Math.min(1, t / DOODLE_DRAW_S) * total;
+      let tip: DOMPoint | null = null;
+      lines.forEach((l, i) => {
+        const drawn = Math.min(lengths[i], left);
+        l.setAttribute('stroke-dashoffset', `${lengths[i] - drawn}`);
+        if (left > 0 && left <= lengths[i]) tip = l.getPointAtLength(drawn);
+        left -= drawn;
+      });
+      if (tip) pen.setAttribute('transform', `translate(${(tip as DOMPoint).x} ${(tip as DOMPoint).y})`);
+      const step = String(DOODLE_GUESSES_AT.filter((at) => t >= at).length);
+      if (root.dataset.step !== step) root.dataset.step = step;
+      root.classList.toggle('is-done', t >= DOODLE_DRAW_S);
+      root.classList.toggle('is-wipe', t >= DOODLE_WIPE_AT);
+      const seconds = String(Math.ceil(80 - Math.min(t, DOODLE_GUESSES_AT[2]) * 7));
+      if (clock.textContent !== seconds) clock.textContent = seconds;
+    };
+
+    if (stageTier() === 'off') {
+      show(DOODLE_WIPE_AT - 0.1);
+      return;
+    }
+    show(0);
+
+    /** Where 3D can't run, the flat sheet animates instead. */
+    const playFlat = () => {
+      let t = 0;
+      return whileSeen(root, () => {
+        let frame = 0;
+        let last = performance.now();
+        const loop = (now: number) => {
+          t = (t + Math.min(0.05, (now - last) / 1000)) % DOODLE_LOOP_S;
+          last = now;
+          show(t);
+          frame = requestAnimationFrame(loop);
+        };
+        frame = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(frame);
+      });
+    };
+
+    let stop: (() => void) | undefined;
+    let gone = false;
+    // The 3D waits until the card is actually seen: a card further along the slider costs nothing yet.
+    const notSeen = onceSeen(root, () => {
+      import('../drawGame/card3d')
+        .then(({ playDoodle3D }) => {
+          if (gone) return;
+          const strokes = lines.map((path, i) => ({ path, color: ROCKET[i].color, width: ROCKET[i].width }));
+          const timing = { draw: DOODLE_DRAW_S, loop: DOODLE_LOOP_S, wipeAt: DOODLE_WIPE_AT, revealAt: DOODLE_GUESSES_AT[2] };
+          stop = playDoodle3D(canvasRef.current!, strokes, timing, show);
+          root.classList.add('is-3d');
+        })
+        .catch(() => {
+          if (!gone) stop = playFlat();
+        });
+    });
+    return () => {
+      gone = true;
+      notSeen();
+      stop?.();
+    };
+  }, []);
+
   return (
-    <svg className="wp-pen-art" viewBox="0 0 320 170" aria-hidden>
-      <rect width="320" height="170" fill="#21252d" />
-      <polygon points="52,12 268,6 276,158 44,164" fill="#f2f0ea" />
-      <path {...line} d="M118 118c-16-30-8-58 2-74 8 6 15 12 20 18 12-3 26-3 38 0 6-7 12-13 21-18 9 18 15 44 1 74-20 22-62 22-82 0z" />
-      <path {...line} d="M140 92h.1M180 92h.1M152 108c6 6 12 6 18 0" />
-      <path d="M84 96 42 88M84 108H40M236 96l40-8" fill="none" stroke="#ff6a13" strokeWidth="5" strokeLinecap="round" />
-      <polygon points="276,78 300,52 310,62 286,88 272,92" fill="#ff6a13" />
-      <text x="160" y="154" textAnchor="middle" fontFamily="Anton, Impact, sans-serif" fontSize="17" letterSpacing="5" fill="#14100c">_ _ _</text>
-    </svg>
+    <div ref={rootRef} className="wp-doodle" data-step="0" aria-hidden>
+      <canvas ref={canvasRef} className="wp-doodle-3d" />
+      <div className="wp-doodle-scene">
+        <div className="wp-doodle-sheet">
+          <svg viewBox="0 0 200 150">
+            <g className="wp-doodle-ink">
+              {ROCKET.map((s) => (
+                <path key={s.d} className="wp-doodle-line" d={s.d} fill="none" stroke={s.color} strokeWidth={s.width} strokeLinecap="round" strokeLinejoin="round" />
+              ))}
+            </g>
+            <text className="wp-doodle-mask" x="100" y="146" textAnchor="middle">
+              _ _ _ _ _ _
+            </text>
+            <text className="wp-doodle-word" x="100" y="146" textAnchor="middle">
+              ROCKET
+            </text>
+            <g ref={penRef} className="wp-doodle-pen">
+              <polygon points="0,0 7,-16 15,-12 5,3" fill="#ff6a13" />
+              <polygon points="0,0 3,-7 8,-4 3,1" fill="#f2c9a0" />
+              <polygon points="0,0 1.4,-3 3.4,-2 1,0.6" fill="#14100c" />
+            </g>
+          </svg>
+        </div>
+        <div className="wp-doodle-paints">
+          {['#14100c', '#e0322b', '#ff6a13', '#2a6fdb', '#3fae3a', '#e84f9c'].map((c) => (
+            <span key={c} style={{ background: c }} />
+          ))}
+        </div>
+      </div>
+      <span ref={clockRef} className="wp-doodle-clock">
+        80
+      </span>
+      <ul className="wp-doodle-guesses">
+        <li>A carrot?</li>
+        <li>Pencil??</li>
+        <li className="is-right">
+          Rocket! <b>+320</b>
+        </li>
+      </ul>
+    </div>
   );
 }
 
-/** The wolf mid-leap over a rock, for Wolf Run's card. */
 /** The film strip's frames: little puzzle pictures, and the question they ask. */
 const REEL = ['🦁', '?', '💍', '🚂', '?', '🌹', '⚔️', '🔥'];
 
@@ -128,26 +253,56 @@ export function MovieArt() {
   );
 }
 
+/** Stick Man Sword Fight's card: two fighters in 3D, or a flat duel where 3D can't run. */
+export function SwordArt() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (stageTier() === 'off') return;
+    let stop: (() => void) | undefined;
+    let gone = false;
+    const notSeen = onceSeen(canvasRef.current!, () => {
+      void import('../swordGame/card3d')
+        .then(({ playDuelCard }) => {
+          if (!gone && canvasRef.current) stop = playDuelCard(canvasRef.current);
+        })
+        .catch(() => {});
+    });
+    return () => {
+      gone = true;
+      notSeen();
+      stop?.();
+    };
+  }, []);
+  return <canvas ref={canvasRef} className="wp-pen-art wp-sword-art" aria-hidden />;
+}
+
+/** Wolf Run's card: the real game's wolf and course in 3D, or in 2D where 3D can't run. */
 export function WolfRunArt() {
-  return (
-    <svg className="wp-pen-art" viewBox="0 0 320 170" aria-hidden>
-      <rect width="320" height="170" fill="#0f1115" />
-      <polygon points="0,130 60,70 120,120 190,60 260,118 320,84 320,170 0,170" fill="#181b21" />
-      <circle cx="262" cy="42" r="20" fill="#f2f0ea" />
-      <circle cx="254" cy="38" r="18" fill="#0f1115" />
-      <rect y="136" width="320" height="34" fill="#2b3039" />
-      <rect y="136" width="320" height="3" fill="#ff6a13" />
-      <polygon points="190,136 196,112 212,102 228,114 234,136" fill="#4a505c" />
-      <polygon points="196,112 212,102 214,126 204,136 190,136" fill="#6a7180" />
-      <g transform="translate(92 42) scale(2) rotate(-10 32 22)">
-        <polygon points="14,32 20,32 8,44 3,44" fill="#c94f06" />
-        <polygon points="36,32 42,32 54,42 49,44" fill="#ff6a13" />
-        {WOLF_PARTS.map((p) => (
-          <polygon key={p.points.join()} points={p.points.join(' ')} fill={p.fill} />
-        ))}
-      </g>
-    </svg>
-  );
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    let gone = false;
+    const flat = (still: boolean) =>
+      import('../runnerGame/cardScene').then(({ playCardScene }) => {
+        if (!gone && canvasRef.current) stop = playCardScene(canvasRef.current, still);
+      });
+    const notSeen = onceSeen(canvasRef.current!, () => {
+      if (stageTier() === 'off') void flat(true);
+      else {
+        import('../runnerGame/card3d')
+          .then(({ playWolf3D }) => {
+            if (!gone && canvasRef.current) stop = playWolf3D(canvasRef.current);
+          })
+          .catch(() => void flat(false));
+      }
+    });
+    return () => {
+      gone = true;
+      notSeen();
+      stop?.();
+    };
+  }, []);
+  return <canvas ref={canvasRef} className="wp-pen-art wp-wolf-art" aria-hidden />;
 }
 
 export function SoundIcon({ muted }: { muted: boolean }) {

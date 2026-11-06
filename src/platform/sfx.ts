@@ -5,6 +5,8 @@
  * with the games.
  */
 
+import { isAway, watchAudio } from './lifecycle';
+
 const MUTE_KEY = 'penfight:muted';
 const VOLUME = 0.8;
 
@@ -37,6 +39,7 @@ class PlatformSfx {
       const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!Ctx) return;
       this.ctx = new Ctx();
+      watchAudio(this.ctx);
       this.master = this.ctx.createGain();
       this.master.gain.value = this.muted ? 0 : VOLUME;
       this.master.connect(this.ctx.destination);
@@ -45,7 +48,7 @@ class PlatformSfx {
       for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
       this.noise = buf;
     }
-    if (this.ctx.state === 'suspended') void this.ctx.resume();
+    if (this.ctx.state === 'suspended' && !isAway()) void this.ctx.resume();
   }
 
   setMuted(muted: boolean): void {
@@ -170,6 +173,29 @@ class PlatformSfx {
     this.sweep(t, 240, 7000, 0.7, 0.55);
     [392, 523, 659, 784].forEach((f, i) => this.tone(t + i * 0.06, 'sawtooth', f, f, 0.26, 0.07));
     this.tone(t + 0.3, 'sine', 90, 40, 0.5, 0.7);
+  }
+
+  /** A blade cutting the air. */
+  slash(heavy = false): void {
+    const t = this.now();
+    if (t === null) return;
+    this.sweep(t, heavy ? 500 : 900, heavy ? 3600 : 5200, heavy ? 0.24 : 0.14, heavy ? 0.5 : 0.32, 2.2);
+  }
+
+  /** Steel on steel. */
+  clang(ringing = false): void {
+    const t = this.now();
+    if (t === null) return;
+    [1720, 2630, 3910].forEach((f, i) => this.tone(t, 'triangle', f, f * 0.97, ringing ? 0.5 : 0.2, 0.1 / (i + 1)));
+    this.sweep(t, 4200, 2200, 0.06, 0.3, 1);
+  }
+
+  /** A blow that lands. */
+  thud(heavy = false): void {
+    const t = this.now();
+    if (t === null) return;
+    this.tone(t, 'sine', heavy ? 170 : 210, 55, heavy ? 0.26 : 0.15, heavy ? 0.7 : 0.45);
+    this.sweep(t, 900, 240, 0.09, 0.3, 0.9);
   }
 
   /** A quiet two-note drone behind the menus. */

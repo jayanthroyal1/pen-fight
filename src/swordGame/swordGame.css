@@ -1,0 +1,656 @@
+/* Stick Man Sword Fight. A landscape game: on a phone held upright, the whole game turns on its side. */
+.sf-root {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  color: var(--wp-text);
+  background: var(--wp-l0);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+@media (orientation: portrait) and (pointer: coarse) {
+  .sf-root {
+    top: 50%;
+    right: auto;
+    bottom: auto;
+    left: 50%;
+    width: 100dvh;
+    height: 100dvw;
+    transform: translate(-50%, -50%) rotate(90deg);
+  }
+}
+
+.sf-beta {
+  display: inline-block;
+  padding: 1px 7px;
+  color: var(--wp-on-accent);
+  font-family: var(--wp-font);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--wp-accent);
+}
+
+.sf-heading {
+  margin: 0;
+  font-family: var(--wp-head);
+  font-size: 24px;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.sf-top {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+}
+
+.sf-top .sf-beta {
+  margin-left: auto;
+}
+
+/* The title and the ending. */
+.sf-title,
+.sf-done {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px max(24px, env(safe-area-inset-right)) 16px max(24px, env(safe-area-inset-left));
+  text-align: center;
+  background:
+    linear-gradient(transparent 60%, var(--wp-l0)),
+    linear-gradient(#2a0f12, #a33a18 74%, #1d1311 74.4%);
+  animation: sf-in 0.3s ease-out both;
+}
+
+.sf-title-back {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+}
+
+.sf-kicker {
+  margin: 0;
+  font-weight: 700;
+}
+
+.sf-logo {
+  margin: 0;
+  font-family: var(--wp-head);
+  font-size: clamp(36px, 11dvh, 72px);
+  font-weight: 400;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.sf-lead {
+  max-width: 560px;
+  margin: 0;
+}
+
+.sf-start {
+  width: min(100%, 320px);
+  margin-top: 8px;
+}
+
+.sf-done-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.sf-done-actions .wp-play {
+  width: auto;
+  min-width: 240px;
+  padding-inline: 18px;
+}
+
+.sf-plain {
+  min-height: 48px;
+  padding: 0 18px;
+  color: var(--wp-text);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--wp-edge-strong);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* Choosing. */
+.sf-choose,
+.sf-chapters {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  animation: sf-in 0.24s ease-out both;
+}
+
+.sf-choose-grid {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 8px;
+  min-height: 0;
+}
+
+.sf-list {
+  display: grid;
+  grid-auto-rows: 1fr;
+  gap: 6px;
+  min-height: 0;
+}
+
+.sf-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: center;
+  align-items: center;
+  column-gap: 8px;
+  min-height: 44px;
+  padding: 4px 8px;
+  overflow: hidden;
+  color: var(--wp-text);
+  font-family: inherit;
+  text-align: left;
+  background: var(--wp-l1);
+  border: 1px solid var(--wp-edge);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.sf-option.is-on {
+  background: var(--wp-l2);
+  border-color: var(--wp-accent);
+  box-shadow: inset 0 0 0 1px var(--wp-accent);
+}
+
+.sf-option i {
+  grid-row: 1 / span 2;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+
+.sf-option i.is-blade {
+  width: 4px;
+  height: 26px;
+  margin-inline: 5px;
+  border-radius: 0;
+}
+
+.sf-option strong {
+  font-size: 15px;
+  line-height: 1.15;
+}
+
+.sf-option small {
+  overflow: hidden;
+  color: var(--wp-muted);
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sf-preview {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background: linear-gradient(#2b2150, #f08a4b);
+}
+
+.sf-preview canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sf-preview p {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  margin: 0;
+  padding: 3px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.sf-choose-foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+}
+
+.sf-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sf-toggle input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--wp-accent);
+}
+
+.sf-free {
+  margin: 0;
+  color: var(--wp-right);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sf-go {
+  width: auto;
+  min-width: 220px;
+  margin-left: auto;
+}
+
+/* The road of chapters. */
+.sf-road {
+  display: grid;
+  flex: 1;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sf-road li {
+  min-height: 0;
+}
+
+.sf-chapter {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  width: 100%;
+  height: 100%;
+  padding: 6px 10px;
+  overflow: hidden;
+  color: var(--wp-text);
+  font-family: inherit;
+  text-align: left;
+  background: var(--wp-l2);
+  border: 1px solid var(--wp-edge-strong);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.sf-chapter.is-locked {
+  color: var(--wp-muted);
+  background: var(--wp-l1);
+  border-color: var(--wp-edge);
+}
+
+.sf-chapter b {
+  color: var(--wp-accent);
+  font-family: var(--wp-head);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.sf-chapter.is-locked b {
+  color: var(--wp-muted);
+}
+
+.sf-chapter strong {
+  font-size: 15px;
+  line-height: 1.15;
+}
+
+.sf-chapter small {
+  color: var(--wp-muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.sf-chapter em {
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+/* The fight. */
+.sf-fight {
+  position: absolute;
+  inset: 0;
+}
+
+.sf-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sf-cover {
+  position: absolute;
+  padding: 16px;
+  text-align: center;
+}
+
+.sf-cover .wp-play {
+  width: auto;
+  padding-inline: 20px;
+}
+
+.sf-hud {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  left: max(12px, env(safe-area-inset-left));
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.sf-side {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  text-shadow: 0 1px 3px #000;
+}
+
+.sf-side strong {
+  overflow: hidden;
+  font-size: 15px;
+  line-height: 1.1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sf-side.is-foe {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.sf-bar {
+  display: block;
+  width: 100%;
+  height: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.sf-bar i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: left;
+  transition: transform 0.14s ease-out;
+}
+
+.sf-bar.is-hp i {
+  background: var(--wp-right);
+}
+
+.sf-bar.is-foe-hp i {
+  background: var(--wp-wrong);
+  transform-origin: right;
+}
+
+.sf-bar.is-guard {
+  height: 5px;
+  border: 0;
+}
+
+.sf-bar.is-guard i {
+  background: #8fd8ff;
+}
+
+.sf-bar.is-energy i {
+  background: var(--wp-accent);
+}
+
+.sf-pause {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  color: var(--wp-text);
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--wp-edge-strong);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.sf-pad,
+.sf-actions {
+  position: absolute;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.sf-pad {
+  left: max(12px, env(safe-area-inset-left));
+}
+
+.sf-actions {
+  right: max(12px, env(safe-area-inset-right));
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  width: min(44%, 280px);
+}
+
+.sf-key {
+  display: grid;
+  place-items: center;
+  width: 70px;
+  height: 70px;
+  padding: 0;
+  color: #fff;
+  font-family: var(--wp-head);
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(10, 10, 14, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.sf-key:active {
+  background: rgba(255, 106, 19, 0.65);
+}
+
+.sf-key.is-flip svg {
+  transform: scaleX(-1);
+}
+
+.sf-key.is-strike {
+  width: 86px;
+  height: 86px;
+  color: var(--wp-on-accent);
+  font-size: 18px;
+  background: var(--wp-accent);
+  border-color: var(--wp-accent);
+}
+
+.sf-powers {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.sf-energy {
+  flex-basis: 100%;
+}
+
+.sf-energy .sf-bar {
+  height: 7px;
+}
+
+.sf-power {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.4);
+  background: rgba(10, 10, 14, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.sf-power.is-ready {
+  color: var(--wp-on-accent);
+  background: #ffc21a;
+  border-color: #ffc21a;
+}
+
+.sf-call {
+  position: absolute;
+  top: 24%;
+  right: 0;
+  left: 0;
+  margin: 0;
+  font-family: var(--wp-head);
+  font-size: clamp(30px, 11dvh, 60px);
+  text-align: center;
+  text-shadow: 0 3px 0 #000;
+  text-transform: uppercase;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sf-story {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 4px;
+  width: 100%;
+  padding: 12px max(16px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  color: var(--wp-text);
+  font-family: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.sf-chapter-tag {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: max(16px, env(safe-area-inset-left));
+  padding: 2px 8px;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.sf-line {
+  padding: 10px 14px;
+  background: rgba(8, 8, 12, 0.82);
+  border-left: 4px solid var(--wp-accent);
+}
+
+.sf-line strong {
+  color: var(--wp-accent);
+  font-family: var(--wp-head);
+  font-size: 18px;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.sf-line p {
+  margin: 2px 0 0;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.sf-story small {
+  align-self: flex-end;
+  padding: 0 6px;
+  font-size: 13px;
+  text-shadow: 0 1px 3px #000;
+}
+
+.sf-paused {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(8, 8, 12, 0.75);
+}
+
+.sf-paused .wp-play {
+  width: min(80%, 300px);
+}
+
+@keyframes sf-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-title,
+  .sf-done,
+  .sf-choose,
+  .sf-chapters {
+    animation: none;
+  }
+}
+
+/* Short landscape phones. */
+@media (max-height: 420px), (orientation: portrait) and (pointer: coarse) and (max-width: 420px) {
+  .sf-key {
+    width: 62px;
+    height: 62px;
+  }
+
+  .sf-key.is-strike {
+    width: 76px;
+    height: 76px;
+  }
+
+  .sf-power {
+    width: 44px;
+    height: 44px;
+  }
+}

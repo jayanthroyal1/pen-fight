@@ -48,6 +48,7 @@
 }
 
 .wr-card {
+  animation: wr-rise 0.22s ease-out both;
   position: absolute;
   top: 50%;
   left: 50%;
@@ -275,5 +276,18 @@
     max-height: calc(68% - 148px - env(safe-area-inset-top));
     margin-top: 0;
     transform: translate(-50%, -100%);
+  }
+}
+
+@keyframes wr-rise {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wr-card {
+    animation: none;
   }
 }

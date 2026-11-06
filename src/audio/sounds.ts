@@ -6,6 +6,7 @@
  * and each hero power's own sounds.
  */
 
+import { isAway, watchAudio } from '../platform/lifecycle';
 import type { BoostId } from '../game/boosts';
 import type { PowerId } from '../game/powers';
 import { renderApplause, type ApplauseOptions } from './applause';
@@ -46,6 +47,7 @@ class SoundBoard {
       const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!Ctx) return;
       this.ctx = new Ctx();
+      watchAudio(this.ctx);
       this.master = this.ctx.createGain();
       this.master.gain.value = this.muted ? 0 : 0.9;
       this.master.connect(this.ctx.destination);
@@ -56,7 +58,7 @@ class SoundBoard {
       // Chatter asked for before the first tap starts now.
       if (this.wantChatter) this.startChatter(this.wantChatter);
     }
-    if (this.ctx.state === 'suspended') void this.ctx.resume();
+    if (this.ctx.state === 'suspended' && !isAway()) void this.ctx.resume();
   }
 
   /** The class claps for a win: louder and longer for winning the match. */

@@ -1,3 +1,4 @@
+import { whenHere } from '../platform/lifecycle';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { sounds } from '../audio/sounds';
 import { DIFFICULTY, chooseAiBoost, chooseAiShotSoon, type Difficulty } from '../game/ai';
@@ -595,6 +596,9 @@ export function GameView({ setup, online, onSettle, onSpendBoost, onExit }: Prop
         toggleBoost(1, pick);
       }
       shotTimer = window.setTimeout(async () => {
+        // The computer doesn't play on while you're away.
+        await whenHere();
+        if (cancelled) return;
         const flick = await chooseAiShotSoon(stateRef.current, 1, { samples, wobble }, () => cancelled);
         if (flick && !cancelled) shoot(flick, false);
       }, pick ? 900 : 0);

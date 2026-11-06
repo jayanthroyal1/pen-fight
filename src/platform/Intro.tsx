@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { autoFullscreen, install, installOffer, onInstallChange, wasInstalled } from './fullscreen';
+import { isAway, onAwayChange } from './lifecycle';
 import { buzz, sfx } from './sfx';
+import { Splash } from './Splash';
 import { asset, stageTier } from './tier';
 
 interface Props {
@@ -17,8 +19,9 @@ const OUT_MS = 380;
 const TALL = '(max-aspect-ratio: 1/1)';
 const videoFor = (tall: boolean) => asset(tall ? 'brand/intro-tall.mp4' : 'brand/intro-wide.mp4');
 
-/** The launch splash stays up at least this long, and no longer than the wait below for the film. */
-const SPLASH_MIN_MS = 1100;
+/** The splash stays up at least this long, and no longer than the wait below for the film. */
+const SPLASH_MIN_MS = 1900;
+const SPLASH_MIN_STILL_MS = 500;
 const SPLASH_MAX_MS = 3500;
 
 /** Who made it, along the bottom of the opening screens. */
@@ -34,23 +37,25 @@ function Credit() {
 }
 
 /**
- * `splash` is the installed app's launch screen; `welcome` offers the Home Screen in a browser;
+ * `splash` opens everything; `welcome` then offers the Home Screen in a browser;
  * `film` plays; `hold` waits for the tap; `out` fades into the platform.
  */
 type Phase = 'splash' | 'welcome' | 'film' | 'hold' | 'out';
 
 /**
- * The opening. In a browser it first offers the Home Screen, and pressing Play
+ * The opening. It starts on the splash while things load. In a browser it then offers the Home Screen, and pressing Play
  * now is also the tap browsers need before they allow sound, so the film plays
- * with sound. Once added to the Home Screen there's nothing to offer, so a splash
- * shows while the film loads, then the film plays, silently if it has to, with a
- * Sound on button. The logo stays hidden until the film reveals it. However the
+ * with sound. Once added to the Home Screen there's nothing to offer, so the film
+ * plays straight after the splash, silently if it has to, with a Sound on button. The logo stays hidden until the film reveals it. However the
  * film ends (played out, skipped, stalled or never started), the logo slams in on
  * its own for Tap to start, so that screen never depends on the film's last frame.
  */
 export function Intro({ onDone }: Props) {
   const useFilm = useRef(stageTier() !== 'off').current;
-  const [phase, setPhase] = useState<Phase>(wasInstalled() ? 'splash' : 'welcome');
+  const [phase, setPhase] = useState<Phase>('splash');
+  // The splash stays over the next screen while it tears open.
+  const [splashOpening, setSplashOpening] = useState(false);
+  const [splashGone, setSplashGone] = useState(false);
   // The film is waiting on the network, which includes before its first frame.
   const [buffering, setBuffering] = useState(true);
   const [offer, setOffer] = useState(installOffer);
@@ -108,13 +113,22 @@ export function Intro({ onDone }: Props) {
     video.play().catch(hold);
   };
 
-  // Installed: the splash covers loading, then the film starts, with sound if the browser allows it.
+  // After the splash: the offer in a browser. Once installed, the film, with sound if the browser allows it.
   useEffect(() => {
     if (phase !== 'splash') return;
-    let ready = false;
+    const installed = wasInstalled();
+    let ready = !installed;
     let waited = false;
+    let gone = false;
     const video = videoRef.current;
     const go = () => {
+      if (gone) return;
+      gone = true;
+      setSplashOpening(true);
+      if (!installed) {
+        setPhase('welcome');
+        return;
+      }
       if (!video) {
         setPhase('hold');
         return;
@@ -135,11 +149,11 @@ export function Intro({ onDone }: Props) {
       check();
     };
     if (!video || video.readyState >= 3) ready = true;
-    else video.addEventListener('canplay', onReady, { once: true });
+    else if (!ready) video.addEventListener('canplay', onReady, { once: true });
     const min = window.setTimeout(() => {
       waited = true;
       check();
-    }, SPLASH_MIN_MS);
+    }, useFilm ? SPLASH_MIN_MS : SPLASH_MIN_STILL_MS);
     const max = window.setTimeout(() => {
       ready = true;
       waited = true;
@@ -175,12 +189,23 @@ export function Intro({ onDone }: Props) {
     return () => query.removeEventListener('change', onTurn);
   }, []);
 
+  // Stepping away stops the film and its sound; it carries on when they're back.
+  useEffect(() => {
+    if (phase !== 'film') return;
+    return onAwayChange((gone) => {
+      const video = videoRef.current;
+      if (!video) return;
+      if (gone) video.pause();
+      else void video.play().catch(() => {});
+    });
+  }, [phase]);
+
   // The film must never trap anyone: if it stops moving, go on without it.
   useEffect(() => {
     if (phase !== 'film' || !useFilm) return;
     let last = videoRef.current?.currentTime ?? 0;
     const id = window.setInterval(() => {
-      if (document.hidden) return;
+      if (isAway()) return;
       const t = videoRef.current?.currentTime ?? 0;
       if (t === last) hold();
       last = t;
@@ -221,12 +246,6 @@ export function Intro({ onDone }: Props) {
           onEnded={hold}
           onError={hold}
         />
-      )}
-
-      {phase === 'splash' && (
-        <div className="wp-splash" role="status" aria-label="Loading WildPlayers">
-          <span className="wp-loader" aria-hidden />
-        </div>
       )}
 
       {phase === 'film' && buffering && <span className="wp-loader wp-film-loader" role="status" aria-label="Loading" />}
@@ -308,6 +327,8 @@ export function Intro({ onDone }: Props) {
           <span className="wp-intro-prompt">Tap to start</span>
         </button>
       )}
+
+      {!splashGone && <Splash leaving={splashOpening} still={!useFilm} onGone={() => setSplashGone(true)} />}
 
       {phase !== 'film' && phase !== 'out' && <Credit />}
     </div>
